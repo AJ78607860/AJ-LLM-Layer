@@ -22,3 +22,8 @@ class BenchmarkCandidate(BaseModel):
 
 # No public ranking endpoint yet: internal authentication, tenant isolation,
 # data provenance and provider approval must precede any externally callable route.
+
+
+# Metadata-only internal shadow endpoint; no model execution.
+from .shadow import router as shadow_router
+app.include_router(shadow_router)
