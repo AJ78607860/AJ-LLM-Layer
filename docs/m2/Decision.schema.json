@@ -79,6 +79,18 @@
           ],
           "title": "Upper Cost"
         },
+        "validated_completion_probability_lower": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Validated Completion Probability Lower"
+        },
         "worst_case_cost": {
           "anyOf": [
             {
@@ -98,6 +110,7 @@
         "expected_request_cost",
         "worst_case_cost",
         "expected_cost_per_success",
+        "validated_completion_probability_lower",
         "measured_cost_per_success",
         "lower_cost",
         "upper_cost"
