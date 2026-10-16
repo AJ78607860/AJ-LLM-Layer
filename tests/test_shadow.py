@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+import pytest
 from aj_llm_layer.api import app
 
 client = TestClient(app)
@@ -14,6 +15,22 @@ def test_disabled_without_config(monkeypatch):
 def test_rejects_unauthorized(monkeypatch):
     monkeypatch.setenv("AJ_LLM_LAYER_SHADOW_TOKEN", "a" * 48)
     assert client.post(URL, json=PAYLOAD).status_code == 401
+
+
+@pytest.mark.parametrize("mode", ["static", "both"])
+def test_rejects_non_ascii_authorization(monkeypatch, mode):
+    monkeypatch.setenv("AJ_LLM_LAYER_AUTH_MODE", mode)
+    monkeypatch.setenv("AJ_LLM_LAYER_SHADOW_TOKEN", "a" * 48)
+    response = client.post(
+        URL, headers={b"Authorization": b"Bearer \xff"}, json=PAYLOAD,
+    )
+    assert response.status_code == 401
+
+
+def test_non_ascii_static_configuration_fails_closed(monkeypatch):
+    monkeypatch.setenv("AJ_LLM_LAYER_AUTH_MODE", "static")
+    monkeypatch.setenv("AJ_LLM_LAYER_SHADOW_TOKEN", "\u00e9" * 48)
+    assert client.post(URL, json=PAYLOAD).status_code == 503
 
 
 def test_rejects_prompt_or_user_data(monkeypatch):

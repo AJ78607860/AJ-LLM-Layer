@@ -22,10 +22,10 @@ class ShadowRequest(BaseModel):
 @router.post("/internal/v1/shadow")
 def shadow_route(req: ShadowRequest, authorization: str | None = Header(default=None)):
     expected = os.environ.get("AJ_LLM_LAYER_SHADOW_TOKEN", "")
-    if not expected or len(expected) < 32:
+    if not expected or not expected.isascii() or len(expected) < 32 or any(c.isspace() for c in expected):
         raise HTTPException(status_code=503, detail="shadow service not configured")
     supplied = (authorization or "").removeprefix("Bearer ")
-    if not secrets.compare_digest(supplied, expected):
+    if not supplied.isascii() or not secrets.compare_digest(supplied, expected):
         raise HTTPException(status_code=401, detail="unauthorized")
     # Deliberately no provider egress, user-level decisions, or price claims.
     return {
