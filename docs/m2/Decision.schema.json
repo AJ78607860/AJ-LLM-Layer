@@ -1,0 +1,351 @@
+{
+  "$defs": {
+    "Estimate": {
+      "additionalProperties": false,
+      "properties": {
+        "currency": {
+          "title": "Currency",
+          "type": "string"
+        },
+        "expected_cost_per_success": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Expected Cost Per Success"
+        },
+        "expected_request_cost": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Expected Request Cost"
+        },
+        "is_estimate": {
+          "default": true,
+          "title": "Is Estimate",
+          "type": "boolean"
+        },
+        "lower_cost": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Lower Cost"
+        },
+        "measured_cost_per_success": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Measured Cost Per Success"
+        },
+        "pricing_version": {
+          "title": "Pricing Version",
+          "type": "string"
+        },
+        "upper_cost": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Upper Cost"
+        },
+        "worst_case_cost": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Worst Case Cost"
+        }
+      },
+      "required": [
+        "pricing_version",
+        "currency",
+        "expected_request_cost",
+        "worst_case_cost",
+        "expected_cost_per_success",
+        "measured_cost_per_success",
+        "lower_cost",
+        "upper_cost"
+      ],
+      "title": "Estimate",
+      "type": "object"
+    },
+    "Ranked": {
+      "additionalProperties": false,
+      "properties": {
+        "cost_per_success": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Cost Per Success"
+        },
+        "expected_cost": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Expected Cost"
+        },
+        "latency_p95_ms": {
+          "title": "Latency P95 Ms",
+          "type": "integer"
+        },
+        "model_id": {
+          "title": "Model Id",
+          "type": "string"
+        },
+        "pareto": {
+          "default": false,
+          "title": "Pareto",
+          "type": "boolean"
+        },
+        "quality_lower": {
+          "title": "Quality Lower",
+          "type": "number"
+        }
+      },
+      "required": [
+        "model_id",
+        "quality_lower",
+        "latency_p95_ms",
+        "expected_cost",
+        "cost_per_success"
+      ],
+      "title": "Ranked",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "authorization_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Authorization Version"
+    },
+    "classification": {
+      "additionalProperties": true,
+      "title": "Classification",
+      "type": "object"
+    },
+    "complexity": {
+      "additionalProperties": true,
+      "title": "Complexity",
+      "type": "object"
+    },
+    "correlation_id": {
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "decision_id": {
+      "title": "Decision Id",
+      "type": "string"
+    },
+    "eligible": {
+      "items": {
+        "$ref": "#/$defs/Ranked"
+      },
+      "title": "Eligible",
+      "type": "array"
+    },
+    "estimates": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Estimate"
+      },
+      "title": "Estimates",
+      "type": "object"
+    },
+    "evidence_versions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Evidence Versions",
+      "type": "object"
+    },
+    "excluded": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "title": "Excluded",
+      "type": "object"
+    },
+    "execution_authorized": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authorized",
+      "type": "boolean"
+    },
+    "model_versions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Model Versions",
+      "type": "object"
+    },
+    "policy": {
+      "additionalProperties": true,
+      "title": "Policy",
+      "type": "object"
+    },
+    "reasons": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Reasons",
+      "type": "array"
+    },
+    "registry_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Registry Version"
+    },
+    "schema_version": {
+      "const": "aj.routing.v1",
+      "default": "aj.routing.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "selected": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Selected"
+    },
+    "simulated": {
+      "title": "Simulated",
+      "type": "boolean"
+    },
+    "snapshot_digest": {
+      "title": "Snapshot Digest",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "RECOMMENDATION",
+        "NO_ELIGIBLE_MODEL"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "task": {
+      "additionalProperties": true,
+      "title": "Task",
+      "type": "object"
+    },
+    "tenant_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Tenant Ref"
+    },
+    "timestamp": {
+      "title": "Timestamp",
+      "type": "integer"
+    },
+    "uncertainty": {
+      "default": [
+        "ESTIMATES_NOT_ACTUAL_CHARGES",
+        "NO_BUDGET_RESERVATION"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "title": "Uncertainty",
+      "type": "array"
+    }
+  },
+  "required": [
+    "decision_id",
+    "correlation_id",
+    "tenant_ref",
+    "timestamp",
+    "status",
+    "simulated",
+    "task",
+    "classification",
+    "complexity",
+    "policy",
+    "authorization_version",
+    "registry_version",
+    "snapshot_digest",
+    "eligible",
+    "excluded",
+    "estimates",
+    "evidence_versions",
+    "model_versions",
+    "selected",
+    "reasons"
+  ],
+  "title": "Decision",
+  "type": "object"
+}

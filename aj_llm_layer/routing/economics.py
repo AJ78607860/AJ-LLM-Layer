@@ -10,6 +10,7 @@ class Estimate(Contract):
     expected_request_cost: Decimal
     worst_case_cost: Decimal
     expected_cost_per_success: Decimal
+    validated_completion_probability_lower: Decimal
     measured_cost_per_success: Decimal | None
     lower_cost: Decimal
     upper_cost: Decimal
@@ -35,11 +36,18 @@ def estimate(task: Task, model: Model, retries: int, currency: str) -> Estimate:
         failure = Decimal(str(e.failure_rate)) + Decimal(str(e.timeout_rate))
         if failure > 1:
             raise ValueError('invalid failure distribution')
-        expected = unit * sum((failure**i if i else Decimal(1)) for i in range(retries+1))
+        attempts = sum((failure**i if i else Decimal(1)) for i in range(retries+1))
+        expected = unit * attempts
+        # Success evidence is per attempted request, inclusive of transport failures.
+        # Retry transport failures only; unsuccessful quality outcomes are terminal.
+        completion = min(Decimal(str(q)), Decimal(1)-failure) * attempts
+        if completion <= 0:
+            raise ValueError('no completion probability')
         upper = unit*(retries+1)
         quant = lambda v: v.quantize(Decimal('.00000001'), rounding=ROUND_CEILING)
         return Estimate(pricing_version=p.version, currency=currency,
                         expected_request_cost=quant(expected), worst_case_cost=quant(upper),
-                        expected_cost_per_success=quant(expected/Decimal(str(q))),
+                        expected_cost_per_success=quant(expected/completion),
+                        validated_completion_probability_lower=completion,
                         measured_cost_per_success=quant(e.measured_cost/e.successes) if e.successes else None,
                         lower_cost=quant(unit), upper_cost=quant(upper))

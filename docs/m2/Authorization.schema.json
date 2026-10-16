@@ -1,0 +1,111 @@
+{
+  "additionalProperties": false,
+  "description": "M1 policy result, trusted separately from caller task hints.",
+  "properties": {
+    "allowed_models": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Models",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "allowed_strategies": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Strategies",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "budget_available": {
+      "title": "Budget Available",
+      "type": "boolean"
+    },
+    "budget_remaining": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,21}0*$)\\d{0,10}\\.\\d{0,10}0*$)",
+          "type": "string"
+        }
+      ],
+      "title": "Budget Remaining"
+    },
+    "currency": {
+      "pattern": "^[A-Z]{3}$",
+      "title": "Currency",
+      "type": "string"
+    },
+    "expires_at": {
+      "minimum": 0,
+      "title": "Expires At",
+      "type": "integer"
+    },
+    "feature_enabled": {
+      "title": "Feature Enabled",
+      "type": "boolean"
+    },
+    "privacy_available": {
+      "title": "Privacy Available",
+      "type": "boolean"
+    },
+    "privacy_class": {
+      "enum": [
+        "personal",
+        "restricted",
+        "non_personal"
+      ],
+      "title": "Privacy Class",
+      "type": "string"
+    },
+    "region": {
+      "maxLength": 40,
+      "minLength": 1,
+      "title": "Region",
+      "type": "string"
+    },
+    "residency": {
+      "maxLength": 40,
+      "minLength": 1,
+      "title": "Residency",
+      "type": "string"
+    },
+    "restricted_approved": {
+      "default": false,
+      "title": "Restricted Approved",
+      "type": "boolean"
+    },
+    "tenant_ref": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Tenant Ref",
+      "type": "string"
+    },
+    "version": {
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tenant_ref",
+    "version",
+    "expires_at",
+    "region",
+    "residency",
+    "privacy_class",
+    "allowed_models",
+    "allowed_strategies",
+    "budget_remaining",
+    "currency",
+    "privacy_available",
+    "budget_available",
+    "feature_enabled"
+  ],
+  "title": "Authorization",
+  "type": "object"
+}

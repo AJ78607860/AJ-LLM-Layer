@@ -1,0 +1,101 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "cached_tokens": {
+      "default": 0,
+      "maximum": 2000000,
+      "minimum": 0,
+      "title": "Cached Tokens",
+      "type": "integer"
+    },
+    "context_tokens": {
+      "default": 0,
+      "maximum": 2200000,
+      "minimum": 0,
+      "title": "Context Tokens",
+      "type": "integer"
+    },
+    "criticality": {
+      "default": "unknown",
+      "enum": [
+        "normal",
+        "high_stakes",
+        "unknown"
+      ],
+      "title": "Criticality",
+      "type": "string"
+    },
+    "families": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Families",
+      "type": "array"
+    },
+    "input_tokens": {
+      "default": 0,
+      "maximum": 2000000,
+      "minimum": 0,
+      "title": "Input Tokens",
+      "type": "integer"
+    },
+    "modalities": {
+      "default": [
+        "text"
+      ],
+      "items": {
+        "enum": [
+          "text",
+          "image",
+          "audio",
+          "document"
+        ],
+        "type": "string"
+      },
+      "title": "Modalities",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "output_tokens": {
+      "default": 0,
+      "maximum": 200000,
+      "minimum": 0,
+      "title": "Output Tokens",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "aj.tasks.v1",
+      "default": "aj.tasks.v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "steps": {
+      "anyOf": [
+        {
+          "maximum": 10000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Steps"
+    },
+    "structured": {
+      "default": false,
+      "title": "Structured",
+      "type": "boolean"
+    },
+    "tools": {
+      "default": false,
+      "title": "Tools",
+      "type": "boolean"
+    }
+  },
+  "title": "Task",
+  "type": "object"
+}
