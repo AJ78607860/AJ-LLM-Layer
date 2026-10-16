@@ -51,8 +51,10 @@ def parse_keys(raw: str) -> dict[str, bytes]:
     keys: dict[str, bytes] = {}
     for entry in (raw or "").split(","):
         kid, sep, key = entry.strip().partition(":")
-        if sep and _KID_RE.fullmatch(kid) and len(key) >= MIN_KEY_CHARS and not any(c.isspace() for c in key):
-            keys[kid] = key.encode("utf-8")
+        if not (sep and _KID_RE.fullmatch(kid) and MIN_KEY_CHARS <= len(key) <= 256
+                and key.isascii() and not any(c.isspace() for c in key)) or kid in keys:
+            return {}  # ambiguous or partially invalid rotation configuration fails closed
+        keys[kid] = key.encode("ascii")
     return keys
 
 
@@ -157,24 +159,36 @@ def verify(header: str, *, method: str, path: str, body: bytes, keys: dict[str, 
     if not hmac.compare_digest(mac(key, kid, claims_b64), sig):
         raise InvalidCredential("mac")
     try:
-        claims = json.loads(_unb64(claims_b64))
-        iat, exp = int(claims["iat"]), int(claims["exp"])
-        jti = str(claims["jti"])
+        def unique(pairs):
+            obj = {}
+            for name, value in pairs:
+                if name in obj:
+                    raise ValueError("duplicate claim")
+                obj[name] = value
+            return obj
+        claims = json.loads(_unb64(claims_b64), object_pairs_hook=unique)
+        iat, exp, jti = claims["iat"], claims["exp"], claims["jti"]
     except Exception:
         raise InvalidCredential("claims") from None
-    if not isinstance(claims, dict) or not 16 <= len(jti) <= 64:
+    if (not isinstance(claims, dict)
+            or set(claims) != {"iss", "aud", "env", "iat", "exp", "jti", "scope", "m", "p", "bh"}
+            or type(iat) is not int or type(exp) is not int or iat < 0
+            or not isinstance(jti, str) or not re.fullmatch(r"[A-Za-z0-9_-]{16,64}", jti)):
         raise InvalidCredential("claims")
     if iat > now_i + SKEW_SECONDS:
         raise InvalidCredential("not_yet_valid")
     if exp <= iat or exp - iat > MAX_LIFETIME_SECONDS:
         raise InvalidCredential("lifetime")
-    if now_i > exp + SKEW_SECONDS:
+    if now_i >= exp:
         raise InvalidCredential("expired")
     for name, expected, reason in (("iss", ISSUER, "iss"), ("aud", AUDIENCE, "aud"), ("env", env, "env"),
                                    ("scope", scope, "scope"), ("m", method.upper(), "method"), ("p", path, "path")):
         if claims.get(name) != expected:
             raise InvalidCredential(reason)
-    if not hmac.compare_digest(str(claims.get("bh", "")), body_hash(body)):
+    bh = claims.get("bh")
+    if not isinstance(bh, str) or not re.fullmatch(r"[A-Za-z0-9_-]{43}", bh):
+        raise InvalidCredential("body_hash")
+    if not hmac.compare_digest(bh, body_hash(body)):
         raise InvalidCredential("body_hash")
     if not replay.add_if_absent(jti, exp, now_i):
         raise InvalidCredential("replay")
