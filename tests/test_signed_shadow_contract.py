@@ -114,3 +114,18 @@ def test_aj_sender_golden_vector():
         body=v["body"].encode(), keys={v["key_id"]: v["key"].encode()},
         env=v["env"], scope=v["scope"], replay=service_auth.ReplayCache(), now=v["now"])
     assert claims["jti"] == v["jti"]
+
+def test_unauthenticated_malformed_payload_does_not_reveal_schema(monkeypatch):
+    setup_signed(monkeypatch)
+    r = TestClient(app).post(PATH, content=b'{"prompt":"private"}',
+        headers={"Content-Type": "application/json"})
+    assert r.status_code == 401
+    assert r.json() == {"detail": "unauthorized"}
+
+
+def test_authenticated_malformed_payload_is_rejected(monkeypatch):
+    setup_signed(monkeypatch)
+    body = b'{"prompt":"private"}'
+    r = send(token(body=body), body=body)
+    assert r.status_code == 422
+    assert r.json() == {"detail": "invalid shadow metadata"}
