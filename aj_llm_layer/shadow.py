@@ -13,7 +13,7 @@ import secrets
 
 from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from . import service_auth
 from .policy import RoutingContext, classify_data
@@ -70,14 +70,19 @@ def _authenticate(*, authorization: str | None, credential: str | None, body: by
 
 @router.post("/internal/v1/shadow")
 async def shadow_route(
-    req: ShadowRequest,
     request: Request,
     authorization: str | None = Header(default=None),
     x_aj_service_auth: str | None = Header(default=None),
     x_aj_correlation_id: str | None = Header(default=None),
 ):
     cid = correlation_id(x_aj_correlation_id)
-    _authenticate(authorization=authorization, credential=x_aj_service_auth, body=await request.body())
+    body = await request.body()
+    _authenticate(authorization=authorization, credential=x_aj_service_auth, body=body)
+    # Authenticate before schema validation to avoid leaking validation details to unauthenticated clients.
+    try:
+        req = ShadowRequest.model_validate_json(body)
+    except (ValidationError, ValueError):
+        raise HTTPException(status_code=422, detail="invalid shadow metadata") from None
     # Do not log task, tokens, provider identity, secrets or user content.
     log.info("shadow_received correlation_id=%s mode=shadow_only", cid)
     return JSONResponse(
