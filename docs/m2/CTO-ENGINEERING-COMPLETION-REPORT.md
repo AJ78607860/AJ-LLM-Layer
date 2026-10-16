@@ -6,7 +6,7 @@ Date: 16 October 2026 (Europe/London).
 
 **AMBER overall: PASS for reviewed offline implementation; HOLD for live M1/M3 integration and production certification.** Six stacked draft PRs implement the task-to-model decision pipeline and reproducible synthetic comparison without provider calls. No merges, deployments, Render changes, secrets changes, paid model execution or assistant production routing changes occurred.
 
-The separate reviewer signed off implementation `fcf84bd9ff917774e306121f518aa94f17edc594` after independently executing 100 tests. This is an offline implementation review, not M1 or production certification. A later evidence-only commit packages this report, regenerated schemas, reviewer findings and CI infrastructure. Its SHA and executed local result are recorded in `final-validation.json` alongside the committed report.
+The separate reviewer signed off implementation `fcf84bd9ff917774e306121f518aa94f17edc594` after independently executing 100 tests. This is an offline implementation review, not M1 or production certification. A later evidence-only commit packages this report, regenerated schemas, reviewer findings and CI infrastructure. Its SHA and executed local result are recorded in a separately delivered `final-validation.json` artifact with the report.
 
 ## 2. Architecture and module inventory
 
@@ -35,7 +35,7 @@ All runs below used clean `git archive` snapshots, macOS arm64, Python 3.13.5. C
 
 Coverage includes unit, integration boundary, policy regression, money/cache/retry/rounding, property-style permutations, 200 candidates, three process hash seeds, fault injection, constructed/malformed inputs, unknown sensitive labels and a network-blocked execution test. Receiver/signed authentication tests remain in the full suite. Independent reviewer reran all 100 at the reviewed SHA, exit 0. No claim of live M1 adapter compatibility: only proposed strict contracts are tested. No full assistant suite was run because no assistant file was modified.
 
-GitHub PR checks initially returned an empty rollup; no CI pass is claimed. `m2-offline.yml` adds full-suite/simulation execution and artifacts. Actual post-push check state is recorded separately in final validation; workflow existence is not evidence of execution.
+GitHub PR checks initially returned an empty rollup; no CI pass is claimed. After publishing, [run 38833374307](https://github.com/AJ78607860/AJ-LLM-Layer/actions/runs/38833374307) failed before any steps ran at `30e4460ec3dbaea5a70c178ac4d40e4ffc578d05`. Its job annotation states: "The job was not started because your account is locked due to a billing issue." This is an external CI/account blocker, not a test result; no billing changes were attempted. `m2-offline.yml` adds full-suite/simulation execution and artifacts. Actual post-push check state is recorded separately in final validation; workflow existence is not evidence of execution.
 
 ## 5. Security review
 
@@ -68,6 +68,7 @@ M1 must authenticate and bind immutable snapshots, derive privacy independently 
 
 ## 10. Outstanding risks
 
+- GitHub Actions cannot execute while the account billing lock remains; required CI is not green.
 - No real M1 adapter, signed evidence store, deployed budget reservation or authenticated routing endpoint is provided or certified.
 - No real provider benchmark, present-day price verification, production performance guarantee or live savings measurement.
 - Synchronous adapter deadlines are the adapter's responsibility; this package cannot forcibly cancel arbitrary blocking in-process code.
