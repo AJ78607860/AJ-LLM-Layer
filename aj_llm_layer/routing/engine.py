@@ -37,12 +37,12 @@ class Decision(Contract):
     uncertainty: tuple[str, ...] = ('ESTIMATES_NOT_ACTUAL_CHARGES', 'NO_BUDGET_RESERVATION')
 
 
-def route(task_data: dict, registry: Snapshot | None, auth: Authorization | None,
+def _route(task_data: dict, registry: Snapshot | None, auth: Authorization | None,
           platform: Policy, *, now: int, correlation_id: str,
           tenant_policy: Policy | None = None, simulation: bool = False) -> Decision:
     # Revalidate even model_copy/model_construct inputs; caller hints never become authorization.
-    registry = Snapshot.model_validate(registry.model_dump()) if registry is not None else None
-    auth = Authorization.model_validate(auth.model_dump()) if auth is not None else None
+    registry = Snapshot.model_validate(registry.model_dump(warnings=False)) if registry is not None else None
+    auth = Authorization.model_validate(auth.model_dump(warnings=False)) if auth is not None else None
     platform = Policy.model_validate(platform.model_dump())
     if type(now) is not int or now < 0:
         raise ValueError('invalid clock')
@@ -101,6 +101,8 @@ def route(task_data: dict, registry: Snapshot | None, auth: Authorization | None
                 if high and model.model_class != 'restricted':
                     failures.append('HIGH_STAKES_RESTRICTED')
                 # Eligibility before cost optimization; missing prices still fail closed.
+                if model.price is not None and model.price.expires_at <= now:
+                    failures.append('PRICING_EXPIRED')
                 if model.price is None:
                     failures.append('PRICING_UNAVAILABLE')
                 if not failures:
@@ -120,13 +122,27 @@ def route(task_data: dict, registry: Snapshot | None, auth: Authorization | None
                 if failures:
                     excluded[model.id] = tuple(sorted(set(failures)))
     ranked = rank(tuple(rows), policy.strategy)
-    canonical = lambda v: json.dumps(v, sort_keys=True, separators=(',', ':'))
+    def stable(value):
+        if isinstance(value, dict):
+            return {k:stable(v) for k,v in value.items()}
+        if isinstance(value, (tuple, list, set, frozenset)):
+            return sorted((stable(v) for v in value), key=lambda v:json.dumps(v, sort_keys=True))
+        return value
+    canonical = lambda v: json.dumps(stable(v), sort_keys=True, separators=(',', ':'))
     snapshot_digest = sha256(canonical({'registry': registry.model_dump(mode='json') if registry else None,
-                                       'authorization': auth.model_dump(mode='json') if auth else None}).encode()).hexdigest()
+                                       'authorization': auth.model_dump(mode='json') if auth else None,
+                                       'platform_policy': platform.model_dump(mode='json')}).encode()).hexdigest()
+    safe_task = task.model_dump(mode='json') if task else {}
+    if task:
+        safe_task['families'] = list(classification.families)
+        safe_task['modalities'] = sorted(task.modalities)
+    safe_classification = classification.model_dump(mode='json') if classification else {}
+    if classification:
+        safe_classification['capabilities'] = sorted(classification.capabilities)
     data = dict(correlation_id=correlation_id, tenant_ref=auth.tenant_ref if auth else None,
         timestamp=now, status='RECOMMENDATION' if ranked else 'NO_ELIGIBLE_MODEL',
-        simulated=simulation, task=task.model_dump(mode='json') if task else {},
-        classification=classification.model_dump(mode='json') if classification else {},
+        simulated=simulation, task=safe_task,
+        classification=safe_classification,
         complexity=complexity.model_dump(mode='json') if complexity else {},
         policy=policy.model_dump(mode='json'), authorization_version=auth.version if auth else None,
         registry_version=registry.version if registry else None, snapshot_digest=snapshot_digest,
@@ -150,3 +166,19 @@ def route_from_m1(task_data: dict, adapter: M1Adapter, *, tenant_ref: str, featu
     except Exception:
         # Never log adapter exception text: it may contain sensitive service responses.
         return route(task_data, None, None, platform, now=now, correlation_id=correlation_id)
+
+
+def route(task_data: dict, registry: Snapshot | None, auth: Authorization | None,
+          platform: Policy, *, now: int, correlation_id: str,
+          tenant_policy: Policy | None = None, simulation: bool = False) -> Decision:
+    try:
+        if tenant_policy is not None:
+            tenant_policy = Policy.model_validate(tenant_policy.model_dump())
+        return _route(task_data, registry, auth, platform, now=now, correlation_id=correlation_id,
+                      tenant_policy=tenant_policy, simulation=simulation)
+    except (ValueError, TypeError, AttributeError, ArithmeticError):
+        # Corrupt trusted inputs produce a minimal, privacy-safe no-route record.
+        safe_now = now if type(now) is int and now >= 0 else 0
+        d = _route({}, None, None, Policy(version='invalid-snapshot.v1'),
+                   now=safe_now, correlation_id='invalid-input', simulation=simulation is True)
+        return d.model_copy(update={'reasons': ('INVALID_DEPENDENCY_SNAPSHOT', 'NO_ELIGIBLE_MODEL')})
