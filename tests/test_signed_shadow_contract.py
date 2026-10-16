@@ -102,3 +102,15 @@ def test_static_compatibility_requires_explicit_mode(monkeypatch):
     r = TestClient(app).post(PATH, json=PAYLOAD,
         headers={"Authorization": "Bearer " + "legacy-static-token-" * 3})
     assert r.status_code == 200
+
+def test_aj_sender_golden_vector():
+    from pathlib import Path
+    v = json.loads((Path(__file__).parent / "fixtures" / "llm_layer_service_auth_vectors.json").read_text())
+    credential = service_auth.sign(method=v["method"], path=v["path"], body=v["body"].encode(),
+        scope=v["scope"], key=v["key"].encode(), kid=v["key_id"], env=v["env"],
+        now=v["now"], jti=v["jti"])
+    assert credential == v["header"]
+    claims = service_auth.verify(credential, method=v["method"], path=v["path"],
+        body=v["body"].encode(), keys={v["key_id"]: v["key"].encode()},
+        env=v["env"], scope=v["scope"], replay=service_auth.ReplayCache(), now=v["now"])
+    assert claims["jti"] == v["jti"]
