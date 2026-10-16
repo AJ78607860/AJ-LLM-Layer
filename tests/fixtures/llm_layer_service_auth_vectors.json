@@ -1,0 +1,13 @@
+{
+  "_note": "Test vectors only; the key is a public dummy. Committed identically to AJ and AJ-LLM-Layer.",
+  "body": "{\"estimated_input_tokens\":0,\"estimated_output_tokens\":0,\"task_family\":\"llm_tools\"}",
+  "env": "staging",
+  "header": "v1.k1.eyJhdWQiOiJhai1sbG0tbGF5ZXIiLCJiaCI6IkZNN2NiQldsdHRhWUNIWUNzY2JlWDBuUW1UbC1jMGUwU1pQR2FOUi1MdEEiLCJlbnYiOiJzdGFnaW5nIiwiZXhwIjoxNzYwMDAwMDMwLCJpYXQiOjE3NjAwMDAwMDAsImlzcyI6ImFqLWFzc2lzdGFudCIsImp0aSI6IkFBQUFBQUFBQUFBQUFBQUFBQUFBQUEiLCJtIjoiUE9TVCIsInAiOiIvaW50ZXJuYWwvdjEvc2hhZG93Iiwic2NvcGUiOiJzaGFkb3c6d3JpdGUifQ.L17fwGuM7tHQpFTkPgp8l6tvdVkky8YEg_6_gRpDra0",
+  "jti": "AAAAAAAAAAAAAAAAAAAAAA",
+  "key": "test-only-dummy-key-not-a-secret-0123456789abcdef",
+  "key_id": "k1",
+  "method": "POST",
+  "now": 1760000000,
+  "path": "/internal/v1/shadow",
+  "scope": "shadow:write"
+}
