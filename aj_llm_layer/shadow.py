@@ -61,10 +61,10 @@ def _authenticate(*, authorization: str | None, credential: str | None, body: by
         return
 
     expected = os.getenv("AJ_LLM_LAYER_SHADOW_TOKEN", "")
-    if not expected or len(expected) < 32 or any(c.isspace() for c in expected):
+    if not expected or not expected.isascii() or len(expected) < 32 or any(c.isspace() for c in expected):
         raise HTTPException(status_code=503, detail="shadow authentication not configured")
     supplied = (authorization or "").removeprefix("Bearer ")
-    if not secrets.compare_digest(supplied, expected):
+    if not supplied.isascii() or not secrets.compare_digest(supplied, expected):
         raise HTTPException(status_code=401, detail="unauthorized")
 
 
