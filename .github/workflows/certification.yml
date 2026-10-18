@@ -1,0 +1,30 @@
+name: shadow-certification
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/checkout@v4
+        with:
+          repository: AJ78607860/AJ-Personal-Assistant
+          ref: ec57d34cb43199916fc7551a6a7bdc47dc06e7d1
+          path: sender-source
+      - name: Install declared dependencies and disposable Redis
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+          sudo apt-get update
+          sudo apt-get install -y redis-server
+      - name: Synthetic receiver, Redis and actual sender contract tests
+        env:
+          AJ_SENDER_SOURCE: ${{ github.workspace }}/sender-source
+        run: AJ_TEST_REDIS_SERVER="$(command -v redis-server)" python -m pytest -q

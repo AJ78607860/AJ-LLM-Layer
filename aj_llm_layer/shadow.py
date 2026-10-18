@@ -10,26 +10,35 @@ import logging
 import os
 import re
 import secrets
+import asyncio
+import json
+from collections import Counter
+from typing import Literal
 
 from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from . import service_auth
+from .replay import get_replay_store, ReplayUnavailable
 from .policy import RoutingContext, classify_data
 
 router = APIRouter()
 log = logging.getLogger("aj.llm_layer.shadow")
 CORRELATION_HEADER = "X-AJ-Correlation-ID"
 _CORRELATION_RE = re.compile(r"\A[A-Za-z0-9_-]{8,64}\Z")
-_replay = service_auth.ReplayCache()
+MAX_BODY_BYTES = 1024
+BODY_TIMEOUT_SECONDS = 2.0
 
 
 class ShadowRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    task_family: str = Field(min_length=1, max_length=80, pattern=r"^[a-z][a-z0-9_]*$")
-    estimated_input_tokens: int = Field(ge=0, le=200000)
-    estimated_output_tokens: int = Field(ge=0, le=200000)
+    task_family: Literal['email_classification', 'order_extraction', 'memory_extraction',
+                         'light_text', 'transcription', 'video_transcription', 'browser_agent',
+                         'cortex_analysis', 'llm_tools', 'public_web_synthesis', 'public_fact_synthesis']
+    estimated_input_tokens: int = Field(ge=0, le=200000, strict=True)
+    estimated_output_tokens: int = Field(ge=0, le=200000, strict=True)
 
 
 def correlation_id(value: str | None) -> str:
@@ -52,8 +61,10 @@ def _authenticate(*, authorization: str | None, credential: str | None, body: by
         try:
             service_auth.verify(
                 credential or "", method="POST", path="/internal/v1/shadow",
-                body=body, keys=keys, env=env, scope="shadow:write", replay=_replay,
+                body=body, keys=keys, env=env, scope="shadow:write", replay=get_replay_store(),
             )
+        except ReplayUnavailable:
+            raise HTTPException(status_code=503, detail="shadow authentication unavailable") from None
         except service_auth.InvalidCredential as exc:
             # Safe fixed reason only; never log signed tokens or request bodies.
             log.warning("shadow_auth_rejected reason=%s", exc.reason)
@@ -61,10 +72,14 @@ def _authenticate(*, authorization: str | None, credential: str | None, body: by
         return
 
     expected = os.getenv("AJ_LLM_LAYER_SHADOW_TOKEN", "")
-    if not expected or not expected.isascii() or len(expected) < 32 or any(c.isspace() for c in expected):
+    if (not expected or not 32 <= len(expected) <= 256 or not expected.isascii()
+            or any(c.isspace() for c in expected)):
         raise HTTPException(status_code=503, detail="shadow authentication not configured")
-    supplied = (authorization or "").removeprefix("Bearer ")
-    if not supplied.isascii() or not secrets.compare_digest(supplied, expected):
+    if (not authorization or not authorization.isascii() or len(authorization) > 263
+            or not authorization.startswith("Bearer ")):
+        raise HTTPException(status_code=401, detail="unauthorized")
+    supplied = authorization[7:]
+    if not secrets.compare_digest(supplied, expected):
         raise HTTPException(status_code=401, detail="unauthorized")
 
 
@@ -76,10 +91,35 @@ async def shadow_route(
     x_aj_correlation_id: str | None = Header(default=None),
 ):
     cid = correlation_id(x_aj_correlation_id)
-    body = await request.body()
-    _authenticate(authorization=authorization, credential=x_aj_service_auth, body=body)
+    counts = Counter(name.lower() for name, _ in request.scope['headers'])
+    if (any(counts[name] > 1 for name in (b'authorization', b'x-aj-service-auth', b'x-aj-correlation-id', b'content-length'))
+            or request.url.query or request.scope.get('raw_path',b'/internal/v1/shadow') != b'/internal/v1/shadow'):
+        raise HTTPException(status_code=401, detail="unauthorized")
+    if x_aj_service_auth is not None and (not x_aj_service_auth.isascii() or len(x_aj_service_auth) > service_auth.MAX_HEADER_CHARS):
+        raise HTTPException(status_code=401, detail="unauthorized")
+    # Stream-counted bound also covers absent/false Content-Length and chunked uploads.
+    chunks = bytearray()
+    try:
+        async with asyncio.timeout(BODY_TIMEOUT_SECONDS):
+            async for chunk in request.stream():
+                if len(chunks) + len(chunk) > MAX_BODY_BYTES:
+                    raise HTTPException(status_code=413, detail="shadow metadata too large")
+                chunks.extend(chunk)
+    except TimeoutError:
+        raise HTTPException(status_code=408, detail="shadow metadata timeout") from None
+    body = bytes(chunks)
+    await run_in_threadpool(_authenticate, authorization=authorization, credential=x_aj_service_auth, body=body)
     # Authenticate before schema validation to avoid leaking validation details to unauthenticated clients.
     try:
+        # Reject duplicate metadata fields before Pydantic's last-key-wins parser.
+        def unique(pairs):
+            result = {}
+            for key, value in pairs:
+                if key in result:
+                    raise ValueError("duplicate metadata")
+                result[key] = value
+            return result
+        json.loads(body, object_pairs_hook=unique)
         req = ShadowRequest.model_validate_json(body)
     except (ValidationError, ValueError):
         raise HTTPException(status_code=422, detail="invalid shadow metadata") from None
