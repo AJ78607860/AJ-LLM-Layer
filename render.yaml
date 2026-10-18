@@ -1,0 +1,11 @@
+# Blueprint template only. No credentials, database or automatic deployment.
+services:
+  - type: web
+    name: aj-llm-layer-staging
+    runtime: python
+    region: frankfurt
+    plan: starter
+    buildCommand: pip install .
+    startCommand: uvicorn aj_llm_layer.api:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    autoDeployTrigger: "off"
