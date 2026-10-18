@@ -1,0 +1,334 @@
+{
+  "$defs": {
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "currency": {
+          "pattern": "^[A-Z]{3}$",
+          "title": "Currency",
+          "type": "string"
+        },
+        "failure_rate": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Failure Rate",
+          "type": "number"
+        },
+        "families": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Families",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "latency_p95_ms": {
+          "exclusiveMinimum": 0,
+          "maximum": 3600000,
+          "title": "Latency P95 Ms",
+          "type": "integer"
+        },
+        "measured_cost": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,21}0*$)\\d{0,10}\\.\\d{0,10}0*$)",
+              "type": "string"
+            }
+          ],
+          "title": "Measured Cost"
+        },
+        "model_version": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Model Version",
+          "type": "string"
+        },
+        "observed_at": {
+          "minimum": 0,
+          "title": "Observed At",
+          "type": "integer"
+        },
+        "samples": {
+          "maximum": 10000000,
+          "minimum": 1,
+          "title": "Samples",
+          "type": "integer"
+        },
+        "source": {
+          "enum": [
+            "independent",
+            "synthetic"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "successes": {
+          "minimum": 0,
+          "title": "Successes",
+          "type": "integer"
+        },
+        "timeout_rate": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Timeout Rate",
+          "type": "number"
+        },
+        "version": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "model_version",
+        "families",
+        "source",
+        "samples",
+        "successes",
+        "observed_at",
+        "latency_p95_ms",
+        "failure_rate",
+        "timeout_rate",
+        "measured_cost",
+        "currency"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "Model": {
+      "additionalProperties": false,
+      "properties": {
+        "approved": {
+          "title": "Approved",
+          "type": "boolean"
+        },
+        "capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Capabilities",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "context_limit": {
+          "exclusiveMinimum": 0,
+          "maximum": 10000000,
+          "title": "Context Limit",
+          "type": "integer"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Evidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "pattern": "^[a-zA-Z0-9._/-]{1,100}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "modalities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Modalities",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "model_class": {
+          "default": "standard",
+          "enum": [
+            "standard",
+            "restricted"
+          ],
+          "title": "Model Class",
+          "type": "string"
+        },
+        "output_limit": {
+          "exclusiveMinimum": 0,
+          "maximum": 1000000,
+          "title": "Output Limit",
+          "type": "integer"
+        },
+        "price": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Price"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "provider": {
+          "pattern": "^[a-zA-Z0-9._-]{1,60}$",
+          "title": "Provider",
+          "type": "string"
+        },
+        "provider_approved": {
+          "title": "Provider Approved",
+          "type": "boolean"
+        },
+        "regions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Regions",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "residencies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Residencies",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "retired": {
+          "default": false,
+          "title": "Retired",
+          "type": "boolean"
+        },
+        "version": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "provider",
+        "version",
+        "approved",
+        "provider_approved",
+        "enabled",
+        "capabilities",
+        "modalities",
+        "context_limit",
+        "output_limit",
+        "regions",
+        "residencies",
+        "price",
+        "evidence"
+      ],
+      "title": "Model",
+      "type": "object"
+    },
+    "Price": {
+      "additionalProperties": false,
+      "properties": {
+        "cached_per_million": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,21}0*$)\\d{0,10}\\.\\d{0,10}0*$)",
+              "type": "string"
+            }
+          ],
+          "title": "Cached Per Million"
+        },
+        "currency": {
+          "pattern": "^[A-Z]{3}$",
+          "title": "Currency",
+          "type": "string"
+        },
+        "expires_at": {
+          "minimum": 0,
+          "title": "Expires At",
+          "type": "integer"
+        },
+        "input_per_million": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,21}0*$)\\d{0,10}\\.\\d{0,10}0*$)",
+              "type": "string"
+            }
+          ],
+          "title": "Input Per Million"
+        },
+        "output_per_million": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,21}0*$)\\d{0,10}\\.\\d{0,10}0*$)",
+              "type": "string"
+            }
+          ],
+          "title": "Output Per Million"
+        },
+        "version": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "expires_at",
+        "currency",
+        "input_per_million",
+        "output_per_million",
+        "cached_per_million"
+      ],
+      "title": "Price",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "expires_at": {
+      "minimum": 0,
+      "title": "Expires At",
+      "type": "integer"
+    },
+    "models": {
+      "items": {
+        "$ref": "#/$defs/Model"
+      },
+      "maxItems": 2000,
+      "title": "Models",
+      "type": "array"
+    },
+    "version": {
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "version",
+    "expires_at",
+    "models"
+  ],
+  "title": "Snapshot",
+  "type": "object"
+}
