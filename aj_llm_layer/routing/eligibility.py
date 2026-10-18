@@ -40,6 +40,8 @@ def exclusions(model: Model, task: Task, classification: Classification,
     e = model.evidence
     if (e is None or e.successes > e.samples or e.samples < min_samples
             or e.observed_at > now or now - e.observed_at > max_age
+            or e.model_version != model.version
+            or not set(classification.families) <= e.families
             or (e.source == 'synthetic' and not synthetic)):
         reasons.append('INSUFFICIENT_EVIDENCE')
     if e is not None:
