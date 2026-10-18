@@ -10,6 +10,7 @@ from .tasks import Contract
 
 class Price(Contract):
     version: str = Field(min_length=1, max_length=80)
+    expires_at: int = Field(ge=0)
     currency: str = Field(pattern=r'^[A-Z]{3}$')
     input_per_million: Decimal = Field(ge=0, max_digits=20, decimal_places=10)
     output_per_million: Decimal = Field(ge=0, max_digits=20, decimal_places=10)
@@ -17,6 +18,8 @@ class Price(Contract):
 
 class Evidence(Contract):
     version: str = Field(min_length=1, max_length=80)
+    model_version: str = Field(min_length=1, max_length=80)
+    families: frozenset[str] = Field(max_length=16)
     source: Literal['independent', 'synthetic']
     samples: int = Field(ge=1, le=10_000_000)
     successes: int = Field(ge=0)
