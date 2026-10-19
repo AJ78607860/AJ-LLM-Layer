@@ -17,3 +17,6 @@ include = ["aj_llm_layer*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.setuptools.package-data]
+"aj_llm_layer.certification" = ["*.json"]

@@ -29,3 +29,8 @@ from .shadow import router as shadow_router
 app.include_router(shadow_router)
 from .observability import ReceiverEnvelope
 app.add_middleware(ReceiverEnvelope)
+
+# Staging-only synthetic certification (404 outside staging/development; signed credentials only;
+# off unless AJ_LLM_LAYER_CERTIFICATION_ENABLED=true). Never executes inference.
+from .certification.api import router as certification_router
+app.include_router(certification_router)

@@ -1,0 +1,32 @@
+{
+  "version": "aj-cert-registry.2026-10-19.v1",
+  "expires_at": 1798761600,
+  "notes": "Staging certification registry only. Prices are copied from AJ core/observability/prices.py defaults (sourced 2026-09-28) and are UNVERIFIED until the owner confirms them against the provider dashboard. context_limit/output_limit are certification policy bounds, not vendor specifications. Not a production registry.",
+  "price_version": "aj-prices-unverified-2026-09-28",
+  "models": [
+    {"id": "openai/gpt-5.6-luna", "provider": "openai", "api_model": "gpt-5.6-luna", "version": "gpt-5.6-luna",
+     "approved": true, "enabled": true,
+     "capabilities": ["text", "structured", "reasoning", "planning", "tools", "translation"],
+     "modalities": ["text"], "context_limit": 32000, "output_limit": 4096,
+     "regions": ["GB"], "residencies": ["global"],
+     "price": {"input": "0.20", "cached": "0.02", "output": "1.20"}},
+    {"id": "openai/gpt-5.6-terra", "provider": "openai", "api_model": "gpt-5.6-terra", "version": "gpt-5.6-terra",
+     "approved": true, "enabled": true,
+     "capabilities": ["text", "structured", "reasoning", "planning", "tools", "translation"],
+     "modalities": ["text"], "context_limit": 32000, "output_limit": 4096,
+     "regions": ["GB"], "residencies": ["global"],
+     "price": {"input": "2.00", "cached": "0.20", "output": "12.00"}},
+    {"id": "openai/gpt-5.6-sol", "provider": "openai", "api_model": "gpt-5.6-sol", "version": "gpt-5.6-sol",
+     "approved": true, "enabled": true,
+     "capabilities": ["text", "structured", "reasoning", "planning", "tools", "translation"],
+     "modalities": ["text"], "context_limit": 32000, "output_limit": 4096,
+     "regions": ["GB"], "residencies": ["global"],
+     "price": {"input": "5.00", "cached": "0.50", "output": "30.00"}},
+    {"id": "groq/openai/gpt-oss-120b", "provider": "groq", "api_model": "openai/gpt-oss-120b", "version": "gpt-oss-120b",
+     "approved": false, "enabled": true,
+     "capabilities": ["text", "structured", "reasoning"],
+     "modalities": ["text"], "context_limit": 32000, "output_limit": 4096,
+     "regions": ["GB"], "residencies": ["global"],
+     "price": {"input": "0.15", "cached": "0.15", "output": "0.60"}}
+  ]
+}
