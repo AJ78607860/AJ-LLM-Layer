@@ -46,7 +46,8 @@ strict schemas (unknown fields 422), **404 unless `AJ_ENVIRONMENT` is staging/de
 - Reservations are atomic (SQLite `BEGIN IMMEDIATE`); 12 concurrent reservers never exceed the cap.
 - Grants outlive every permitted attempt (`max_attempts × timeout + 30 s`); abandoned grants are charged their
   full hold, never zero.
-- Contract violations (extra attempts, token overruns) are charged but never become routing evidence.
+- Contract violations (extra attempts, token overruns, overspend) are charged but never become routing
+  evidence and never move the circuit breaker.
 - High-stakes and financial-analysis tasks are refused (no restricted approval exists).
 - Evidence is `source=synthetic` and only accepted in certification; it cannot leak into customer routing.
 - Provider health: 3 consecutive transport failures open a 5-minute circuit; quality failures do not.
@@ -56,33 +57,44 @@ strict schemas (unknown fields 422), **404 unless `AJ_ENVIRONMENT` is staging/de
 ## Local two-service evidence (19 Oct 2026)
 
 Real Layer service (uvicorn, SQLite ledger), real AJ harness (Cortex, signer, policy gate, OpenAI SDK),
-**fake OpenAI Responses server** on loopback. Run 3, fresh ledger:
+**fake OpenAI Responses server** on loopback. Run 4, final code (after the independent review fixes), fresh
+ledger, `--repeat 5 --include-slow --local-fault-drills`, AJ allowlist = all three OpenAI tiers:
 
 | Area | Result |
 |---|---|
-| 20 executing fixture runs (4 fixtures × 5) | 20/20 validated; first 20 were bootstrap probes on gpt-5.6-luna |
-| Graduation | at 20 validated samples luna became an evidence-based `RECOMMENDATION` (2 attempts allowed) |
+| 20 executing fixture runs (4 fixtures × 5) | 20/20 validated, all bootstrap probes on gpt-5.6-luna (evidence is per family: 15 reasoning + 5 writing, so none reached the 20-sample route threshold; graduation is covered by unit test) |
 | Payment fixture | Cortex `safety_critical/strong` → Layer `HIGH_STAKES_RESTRICTED`, no grant, no execution |
 | Kill switch / production refusal | refused before any network call |
 | Layer unreachable | fail closed, nothing executed |
 | Cortex policy refusal | outcome `refused_by_policy`, charged 0, full release |
 | Replay | same signed request: `[200, 401]` |
 | Abandoned grant | late outcome `409 GRANT_EXPIRED`, full hold charged |
-| Wrong answer | counted as failed sample; breaker untouched |
-| Provider 5xx ×3 | circuit opened on the failing model; next decision rerouted around it and validated |
-| Provider timeout | bounded at the grant's 30 s; unknown usage charged at bound; overspend 0 |
+| Wrong answer | counted as a failed sample; breaker untouched; luna still probe-eligible afterwards |
+| Provider 5xx ×3 | circuit opened on luna; next decision rerouted to terra and validated |
+| Provider timeout | bounded at the grant's 30 s; unknown usage charged at the bound; overspend 0 |
 | Production routing fingerprint | unchanged |
-| Ledger spend | $0.0152 (virtual: fake provider) |
+| Ledger spend | $0.0040 (virtual: fake provider) |
+
+Runs 1–3 (same day, before the fixes) are what found the grant-TTL bug and the over-narrow drill checks.
+
+## Independent review (separate agent, 19 Oct)
+
+Verdict **PASS WITH FINDINGS**, no Critical/High. Fixed with regression tests: M1 (cached-token estimate could
+shrink the hold; overspend flag now persisted and excluded from evidence), M2 (AJ allowlist is now
+provider/model pairs; executor provider must be openai), M3 (missing usage is "unknown", charged at the bound),
+M4 (evidence per task family), M5 (capped bootstrap below 60 samples), L1, L2, L3, L4, L6, L8, L10.
+Open by decision: **M6** ledger durability / multi-replica (see D-B), L5 (holds near London midnight count toward
+the earlier day), L7 (no decision-table retention or per-caller rate limit), L11 (no half-open breaker state),
+L12 (certification and shadow share signing keys; scopes separate them logically only).
 
 Observations worth acting on:
-1. **Small-sample sensitivity is real.** One wrong answer at 21 samples drops luna's 95% Wilson lower bound to
-   0.77 (< 0.80 floor), so routing moves to the next model. Correct statistically; budget ~50+ samples per model
-   before reading anything into a switch.
+1. **Small-sample sensitivity is real.** One wrong answer at ~20 samples pulls a 95% Wilson lower bound below
+   0.80. Budget ~50+ samples per model per family before reading anything into a switch.
 2. **Cortex wording quirks** (found by classifying the fixtures, not changed here): an instruction containing
    "reply" is classified `EXTERNAL_WRITE` → `tool_orchestration`; "Pay £50 … now" gets intent `news_lookup`
    (risk class is still `PAYMENT`, so the safety outcome is right). For Cortex owner review.
-3. The first local attempt ran as root and AJ's cost guard refused it (data-root safety → kill switch treated
-   as on). The abandoned hold from that crash was later charged in full by the sweeper, as designed.
+3. AJ's cost guard refused the first local attempt (run as root → data-root safety → kill switch treated as on).
+   The abandoned hold from that crash was later charged in full by the sweeper, as designed.
 
 ## Staging run: what is needed (owner actions; nothing here was changed)
 
