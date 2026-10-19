@@ -409,3 +409,42 @@ def test_l6_probe_limit_enforced_inside_the_reservation(tmp_path):
         ledger.reserve_and_grant(g(2), amount=Decimal("0.01"), daily_cap=Decimal("1"), max_run=Decimal("1"),
                                  max_concurrent=10, now=now, probe_limit=1)
     assert refused.value.code == "PROBE_LIMIT_REACHED"
+
+
+# ------------------------------------------------------------------ startup diagnostics
+
+def test_diagnostics_are_content_free_and_name_blockers(cert, monkeypatch):
+    from aj_llm_layer.certification import diagnostics
+    monkeypatch.setenv("AJ_LLM_LAYER_REPLAY_BACKEND", "local")
+    monkeypatch.setenv("AJ_ENVIRONMENT", "development")
+    snap = diagnostics.snapshot()
+    assert snap["ready"] is True and snap["blockers"] == []
+    assert snap["signing_key_ids"] == ["test"] and KEY not in json.dumps(snap)
+    monkeypatch.setenv("AJ_LLM_LAYER_SIGNING_KEYS", "short:nope")
+    monkeypatch.delenv("AJ_LLM_LAYER_CERT_DAILY_BUDGET_USD")
+    snap = diagnostics.snapshot()
+    assert {"NO_VALID_SIGNING_KEYS", "NO_DAILY_BUDGET"} <= set(snap["blockers"])
+    assert snap["signing_entries_rejected"] == 1 and "nope" not in json.dumps(snap)
+
+
+def test_diagnostics_report_unreachable_redis_without_url(cert, monkeypatch):
+    from aj_llm_layer.certification import diagnostics
+    monkeypatch.setenv("AJ_LLM_LAYER_REPLAY_BACKEND", "redis")
+    monkeypatch.setenv("AJ_LLM_LAYER_REPLAY_REDIS_URL", "rediss://:secretpw@127.0.0.1:1/0")
+    snap = diagnostics.snapshot()
+    assert snap["replay"] in ("unreachable", "unavailable") and not snap["ready"]
+    assert "secretpw" not in json.dumps(snap)
+
+
+def test_startup_log_in_production_says_nothing_else(monkeypatch, caplog):
+    from aj_llm_layer.certification import diagnostics
+    monkeypatch.setenv("AJ_ENVIRONMENT", "production")
+    with caplog.at_level("INFO", logger="uvicorn.error"):
+        diagnostics.log_startup()
+    assert json.loads(caplog.records[-1].getMessage()) == {"event": "certification_config",
+                                                           "environment_allowed": False}
+
+
+def test_status_reports_readiness(cert):
+    status = call(STATUS).json()
+    assert "ready" in status and status["signing_key_ids"] == ["test"]
