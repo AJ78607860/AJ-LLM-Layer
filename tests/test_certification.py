@@ -322,3 +322,90 @@ def test_grant_outlives_all_attempts(cert, monkeypatch):
     monkeypatch.setenv("AJ_LLM_LAYER_CERT_GRANT_TTL_SECONDS", "10")
     grant = call(DECIDE, decide_payload()).json()["grant"]
     assert grant["expires_at"] >= int(time.time()) + grant["max_attempts"] * grant["timeout_seconds"] + 29
+
+
+# ------------------------------------------------- independent review regressions (19 Oct)
+
+def test_m1_cached_token_estimate_cannot_shrink_the_hold(cert):
+    task = dict(TASK, input_tokens=20000, cached_tokens=19000, output_tokens=64)
+    grant = call(DECIDE, decide_payload(task)).json()["grant"]
+    # Reserved as if nothing were cached: (20000 * 0.20 + 64 * 1.20) / 1e6
+    assert Decimal(grant["reserved"]) == Decimal("0.00407680")
+    result = report(grant, attempts=[ok_attempt(input_tokens=20000, cached_tokens=0, output_tokens=64)]).json()
+    assert result["settlement"]["overspend"] == "0" and result["counted_as_evidence"] is True
+
+
+def test_m1_overspend_is_flagged_persisted_and_never_evidence(cert):
+    grant = call(DECIDE, decide_payload()).json()["grant"]
+    result = report(grant, attempts=[ok_attempt(input_tokens=200, output_tokens=64, cached_tokens=0)]).json()
+    assert result["settlement"]["overspend"] == "0"
+    grant = call(DECIDE, decide_payload()).json()["grant"]
+    # Within token bounds but priced above the hold is impossible; force it via a bound breach.
+    result = report(grant, attempts=[ok_attempt(input_tokens=5000, output_tokens=64)]).json()
+    assert "RESERVATION_EXCEEDED" in result["flags"] and result["counted_as_evidence"] is False
+    import sqlite3
+    flags = sqlite3.connect(str(cert / "ledger.sqlite3")).execute(
+        "SELECT flags FROM outcomes WHERE grant_id=?", (grant["grant_id"],)).fetchone()[0]
+    assert "RESERVATION_EXCEEDED" in flags
+
+
+def test_m4_evidence_is_per_family(cert):
+    extraction = dict(TASK, families=["extraction"], structured=True)
+    for _ in range(20):
+        grant = call(DECIDE, decide_payload(extraction, task_class="simple_extraction")).json()["grant"]
+        report(grant)
+    assert call(DECIDE, decide_payload(extraction, task_class="simple_extraction")).json()["grant"]["kind"] == "route"
+    planning = call(DECIDE, decide_payload(dict(TASK, families=["planning"]))).json()
+    # No planning evidence yet: bootstrap probe on the cheapest model, not an evidence-based route.
+    assert planning["grant"]["kind"] == "probe" and planning["grant"]["model_id"] == "openai/gpt-5.6-luna"
+
+
+def test_m5_one_early_failure_does_not_lock_out_the_cheap_model(cert):
+    grant = call(DECIDE, decide_payload()).json()["grant"]
+    report(grant, status="failed", passed=False)
+    for _ in range(19):
+        grant = call(DECIDE, decide_payload()).json()["grant"]
+        report(grant)
+    record = call(DECIDE, decide_payload()).json()
+    assert record["grant"]["model_id"] == "openai/gpt-5.6-luna" and record["grant"]["kind"] == "probe"
+
+
+def test_l1_contract_violations_never_move_the_breaker(cert):
+    for _ in range(3):
+        grant = call(DECIDE, decide_payload()).json()["grant"]
+        result = report(grant, status="failed", passed=False, attempts=[
+            ok_attempt(error="timeout", usage_known=False, output_tokens=0, input_tokens=0),
+            ok_attempt(error="timeout", usage_known=False, output_tokens=0, input_tokens=0)]).json()
+        assert "ATTEMPT_BOUND_EXCEEDED" in result["flags"] and result["health"] is None
+    assert call(STATUS).json()["circuit_open"] == []
+
+
+def test_l10_failed_with_passing_validation_is_inconsistent(cert):
+    grant = call(DECIDE, decide_payload()).json()["grant"]
+    response = report(grant, status="failed", passed=True)
+    assert response.status_code == 409 and response.json()["code"] == "INCONSISTENT_OUTCOME"
+
+
+def test_l8_broken_registry_fails_closed_with_503(cert, monkeypatch):
+    bad = cert / "registry.json"
+    bad.write_text("{not json")
+    monkeypatch.setenv("AJ_LLM_LAYER_CERT_REGISTRY_PATH", str(bad))
+    response = call(DECIDE, decide_payload())
+    assert response.status_code == 503 and response.json()["detail"] == "model registry unavailable"
+
+
+def test_l6_probe_limit_enforced_inside_the_reservation(tmp_path):
+    ledger = Ledger(str(tmp_path / "l.sqlite3"))
+    now = int(time.time())
+
+    def g(i):
+        return {"grant_id": f"grt_{i:032x}", "reservation_id": f"rsv_{i:032x}", "decision_id": "d",
+                "correlation_id": "c", "kind": "probe", "model_id": "m", "provider": "openai", "api_model": "m",
+                "families": ["reasoning"], "max_input_tokens": 1, "max_output_tokens": 1, "max_attempts": 1,
+                "timeout_seconds": 1, "price": {}, "expires_at": now + 60}
+    ledger.reserve_and_grant(g(1), amount=Decimal("0.01"), daily_cap=Decimal("1"), max_run=Decimal("1"),
+                             max_concurrent=10, now=now, probe_limit=1)
+    with pytest.raises(BudgetRefused) as refused:
+        ledger.reserve_and_grant(g(2), amount=Decimal("0.01"), daily_cap=Decimal("1"), max_run=Decimal("1"),
+                                 max_concurrent=10, now=now, probe_limit=1)
+    assert refused.value.code == "PROBE_LIMIT_REACHED"

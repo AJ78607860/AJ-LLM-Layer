@@ -18,6 +18,7 @@ from ..replay import ReplayUnavailable
 from . import config as cert_config
 from . import service
 from .ledger import GrantRejected, Ledger, LedgerUnavailable
+from .registry import RegistryUnavailable
 
 router = APIRouter()
 log = logging.getLogger("aj.llm_layer.certification")
@@ -116,6 +117,8 @@ async def decide_route(request: Request, x_aj_service_auth: str | None = Header(
                                          now=int(time.time()))
     except LedgerUnavailable:
         raise HTTPException(status_code=503, detail="budget ledger unavailable") from None
+    except RegistryUnavailable:
+        raise HTTPException(status_code=503, detail="model registry unavailable") from None
     log.info("certification_decide correlation_id=%s granted=%s refusal=%s", cid,
              record["grant"] is not None, record["refusal"] or "-")
     return JSONResponse(record, headers={_shadow.CORRELATION_HEADER: cid})
@@ -153,10 +156,10 @@ async def status_route(request: Request, x_aj_service_auth: str | None = Header(
     cfg = _gate()
     _reject_ambiguous(request, STATUS_PATH)
     body = await _read_body(request)
-    # POST with an empty body so AJ's pinned POST-only transport can read it; nothing is written.
+    # POST with an empty body so AJ's pinned POST-only transport can read it. Only expired holds are closed.
     await run_in_threadpool(_authenticate, x_aj_service_auth, method="POST", path=STATUS_PATH, body=body)
     ledger = _ledger(cfg)
     try:
         return JSONResponse(await run_in_threadpool(service.status, cfg=cfg, ledger=ledger, now=int(time.time())))
-    except LedgerUnavailable:
+    except (LedgerUnavailable, RegistryUnavailable):
         raise HTTPException(status_code=503, detail="budget ledger unavailable") from None

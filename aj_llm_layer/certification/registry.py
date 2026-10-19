@@ -17,7 +17,7 @@ from importlib import resources
 from ..routing.contracts import Authorization, Evidence, Model, Price, Snapshot
 from ..routing.policies import Policy
 from .config import CertConfig
-from .ledger import Ledger
+from .ledger import Ledger, LedgerUnavailable
 
 TENANT_REF = hashlib.sha256(b"aj-synthetic-certification-tenant.v1").hexdigest()
 FEATURE = "synthetic_certification"
@@ -45,7 +45,21 @@ def _raw() -> dict:
     return json.loads(resources.files(__package__).joinpath("staging_registry.json").read_text())
 
 
-def load_registry(cfg: CertConfig, ledger: Ledger, *, now: int) -> tuple[Snapshot, dict[str, RegistryEntry], set[str]]:
+class RegistryUnavailable(Exception):
+    """Registry file missing or invalid: refuse (503), never guess."""
+
+
+def load_registry(cfg: CertConfig, ledger: Ledger, *, now: int, families: set[str] | None = None
+                  ) -> tuple[Snapshot, dict[str, RegistryEntry], set[str]]:
+    try:
+        return _load(cfg, ledger, now=now, families=families)
+    except (LedgerUnavailable, RegistryUnavailable):
+        raise
+    except Exception:
+        raise RegistryUnavailable() from None
+
+
+def _load(cfg, ledger, *, now, families):
     raw = _raw()
     open_circuits = ledger.open_circuits(now=now)
     since = now - EVIDENCE_WINDOW_SECONDS
@@ -55,7 +69,8 @@ def load_registry(cfg: CertConfig, ledger: Ledger, *, now: int) -> tuple[Snapsho
         price = Price(version=raw["price_version"], expires_at=int(raw["expires_at"]), currency="USD",
                       input_per_million=Decimal(p["input"]), output_per_million=Decimal(p["output"]),
                       cached_per_million=Decimal(p["cached"]))
-        stats = ledger.evidence(item["id"], since=since)
+        # Evidence only from outcomes of the requested families (per-family, not pooled).
+        stats = ledger.evidence(item["id"], since=since, families=families)
         evidence = None
         if stats is not None and stats["families"]:
             evidence = Evidence(

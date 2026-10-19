@@ -156,7 +156,7 @@ class Ledger:
         return abandoned
 
     def reserve_and_grant(self, grant: dict, *, amount: Decimal, daily_cap: Decimal, max_run: Decimal,
-                          max_concurrent: int, now: int) -> None:
+                          max_concurrent: int, now: int, probe_limit: int | None = None) -> None:
         if amount <= 0:
             raise BudgetRefused("INVALID_RESERVATION")
         if amount > max_run:
@@ -168,6 +168,11 @@ class Ledger:
                 raise BudgetRefused("CONCURRENCY_LIMIT")
             if spent + held + amount > daily_cap:
                 raise BudgetRefused("DAILY_BUDGET_EXHAUSTED")
+            if probe_limit is not None and db.execute(
+                    "SELECT COUNT(*) FROM grants g JOIN reservations r ON r.id=g.reservation_id "
+                    "WHERE g.model_id=? AND g.kind='probe' AND r.day=?", (grant["model_id"], day)
+            ).fetchone()[0] >= probe_limit:
+                raise BudgetRefused("PROBE_LIMIT_REACHED")   # re-checked inside the write lock
             db.execute("INSERT INTO reservations(id, day, amount, status, created_at, expires_at) "
                        "VALUES (?, ?, ?, 'held', ?, ?)",
                        (grant["reservation_id"], day, str(amount), now, grant["expires_at"]))
@@ -229,21 +234,24 @@ class Ledger:
                 "overspend": str(max(Decimal("0"), charged - reserved))}
 
     # ---------------------------------------------------------------- evidence
-    def evidence(self, model_id: str, *, since: int) -> dict | None:
+    def evidence(self, model_id: str, *, since: int, families: set[str] | None = None) -> dict | None:
         with self._tx() as db:
             rows = db.execute(
                 "SELECT families, attempts, validated, transport_failures, timeouts, latency_ms, charged, "
                 "recorded_at FROM outcomes WHERE model_id=? AND counted=1 AND recorded_at>=?",
                 (model_id, since)).fetchall()
-        if not rows:
-            return None
-        families: set[str] = set()
+        wanted = set(families or ())
+        seen: set[str] = set()
+        samples = 0
         attempts = successes = failures = timeouts = 0
         latencies: list[int] = []
         cost = Decimal("0")
         observed = 0
         for fams, att, validated, tf, to, latency, charged, recorded in rows:
-            families.update(json.loads(fams))
+            fams = set(json.loads(fams))
+            if wanted and not fams & wanted:
+                continue
+            seen.update(fams & wanted if wanted else fams)
             attempts += att
             successes += validated
             failures += tf
@@ -251,11 +259,14 @@ class Ledger:
             latencies.append(latency)
             cost += Decimal(charged)
             observed = max(observed, recorded)
-        return {"samples": len(rows), "successes": successes, "attempts": attempts,
+            samples += 1
+        if not samples:
+            return None
+        return {"samples": samples, "successes": successes, "attempts": attempts,
                 "failure_rate": (failures - timeouts) / attempts if attempts else 0.0,
                 "timeout_rate": timeouts / attempts if attempts else 0.0,
                 "latency_p95_ms": max(1, _p95(latencies)), "measured_cost": cost,
-                "families": sorted(families), "observed_at": observed}
+                "families": sorted(seen), "observed_at": observed}
 
     def probes_today(self, model_id: str, *, now: int) -> int:
         day = day_key(now)
