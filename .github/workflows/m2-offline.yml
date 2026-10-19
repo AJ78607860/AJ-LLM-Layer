@@ -1,0 +1,28 @@
+name: m2-offline
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: m2-offline-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  offline-tests:
+    runs-on: ubuntu-24.04  # pinned: ubuntu-latest moves to Ubuntu 26 from 2026-10-19
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -e '.[dev]'
+      - run: python -m pytest -q --junitxml=m2-tests.xml
+      - run: python -m aj_llm_layer.routing.demo > m2-simulation.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: m2-offline-evidence
+          path: |
+            m2-tests.xml
+            m2-simulation.json
