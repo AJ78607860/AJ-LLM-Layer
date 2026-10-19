@@ -448,3 +448,45 @@ def test_startup_log_in_production_says_nothing_else(monkeypatch, caplog):
 def test_status_reports_readiness(cert):
     status = call(STATUS).json()
     assert "ready" in status and status["signing_key_ids"] == ["test"]
+
+
+# ------------------------------------------------------- decide wire contract (pinned; AJ replays these shapes)
+
+def test_decide_contract_pairs_are_pinned(cert):
+    """AJ executes only (RECOMMENDATION, route) and (NO_ELIGIBLE_MODEL, probe) with refusal null, and checks a
+    probe's consistency. If this test must change, re-record AJ's tests/fixtures/llm_layer_contract/ fixtures."""
+    probe = call(DECIDE, decide_payload()).json()
+    d, g = probe["decision"], probe["grant"]
+    assert (d["status"], g["kind"], probe["refusal"]) == ("NO_ELIGIBLE_MODEL", "probe", None)
+    assert d["selected"] is None and d["reasons"] == ["NO_ELIGIBLE_MODEL"] and g["max_attempts"] == 1
+    assert set(d["excluded"][g["model_id"]]) <= {"INSUFFICIENT_EVIDENCE", "QUALITY_BELOW_THRESHOLD",
+                                                 "RELIABILITY_BELOW_THRESHOLD"}
+    assert g["model_id"] == f'{g["provider"]}/{g["api_model"]}'
+    report(g)
+    for _ in range(19):
+        report(call(DECIDE, decide_payload()).json()["grant"])
+    route = call(DECIDE, decide_payload()).json()
+    assert (route["decision"]["status"], route["grant"]["kind"], route["refusal"]) == ("RECOMMENDATION", "route", None)
+    assert route["decision"]["selected"] == route["grant"]["model_id"]
+    refused = call(DECIDE, decide_payload(dict(TASK, criticality="high_stakes"), task_class="safety_critical")).json()
+    assert refused["grant"] is None and refused["refusal"]
+
+
+def test_diagnostics_fast_and_secret_free_with_redis_down(cert, monkeypatch):
+    import time as _t
+    from aj_llm_layer.certification import diagnostics
+    monkeypatch.setenv("AJ_LLM_LAYER_REPLAY_BACKEND", "redis")
+    monkeypatch.setenv("AJ_LLM_LAYER_REPLAY_REDIS_URL", "rediss://:pw-should-not-leak@10.255.255.1:6379/0")
+    started = _t.monotonic()
+    snap = diagnostics.snapshot()
+    assert _t.monotonic() - started < 3 and snap["replay"] in ("unreachable", "unavailable")
+    assert "pw-should-not-leak" not in json.dumps(snap)
+
+
+def test_lifespan_wrapper_keeps_app_working_and_logs_once(monkeypatch, caplog):
+    monkeypatch.setenv("AJ_ENVIRONMENT", "production")
+    with caplog.at_level("INFO", logger="uvicorn.error"):
+        with TestClient(app) as client:
+            assert client.get("/healthz").status_code == 200
+    lines = [r.getMessage() for r in caplog.records if "certification_config" in r.getMessage()]
+    assert len(lines) == 1

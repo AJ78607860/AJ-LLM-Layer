@@ -17,7 +17,7 @@ from . import config as cert_config
 _log = logging.getLogger("uvicorn.error")
 
 
-def _replay_status(environment: str) -> str:
+def _replay_status() -> str:
     backend = (os.getenv("AJ_LLM_LAYER_REPLAY_BACKEND") or "redis").strip()
     try:
         from ..replay import get_replay_store, RedisReplayStore
@@ -54,7 +54,7 @@ def snapshot() -> dict:
         "enabled": cfg.enabled,
         "signing_key_ids": sorted(keys),
         "signing_entries_rejected": max(0, len(raw_entries) - len(keys)),
-        "replay": _replay_status(cfg.environment),
+        "replay": _replay_status(),
         "ledger": _ledger_status(cfg.ledger_path),
         "daily_budget_usd": str(cfg.daily_budget),
         "max_run_usd": str(cfg.max_run_budget),
