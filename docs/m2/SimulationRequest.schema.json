@@ -1,0 +1,34 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "failure_multiplier": {
+      "default": 1,
+      "maximum": 5,
+      "minimum": 0,
+      "title": "Failure Multiplier",
+      "type": "number"
+    },
+    "seed": {
+      "default": 42,
+      "maximum": 4294967295,
+      "minimum": 0,
+      "title": "Seed",
+      "type": "integer"
+    },
+    "tasks": {
+      "default": 100,
+      "maximum": 1000,
+      "minimum": 1,
+      "title": "Tasks",
+      "type": "integer"
+    },
+    "version": {
+      "const": "aj.scenarios.v1",
+      "default": "aj.scenarios.v1",
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "title": "SimulationRequest",
+  "type": "object"
+}

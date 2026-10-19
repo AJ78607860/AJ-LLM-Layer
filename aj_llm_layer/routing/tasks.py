@@ -1,6 +1,6 @@
 """Versioned, metadata-only classification. Labels never establish privacy trust."""
 from typing import Literal
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 TAXONOMY_VERSION = 'aj.tasks.v1'
 FAMILIES = {
@@ -28,6 +28,13 @@ class Task(Contract):
     tools: bool = False
     modalities: frozenset[Literal['text', 'image', 'audio', 'document']] = frozenset({'text'})
     criticality: Literal['normal', 'high_stakes', 'unknown'] = 'unknown'
+
+    @field_validator('families')
+    @classmethod
+    def bounded_labels(cls, labels):
+        if any(len(label) > 64 for label in labels):
+            raise ValueError('category label too long')
+        return labels
 
 class Classification(Contract):
     version: str = TAXONOMY_VERSION

@@ -1,0 +1,54 @@
+{
+  "python": "3.13.5 (v3.13.5:6cb20a219a8, Jun 11 2025, 12:23:45) [Clang 16.0.0 (clang-1600.0.26.6)]",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "runs": [
+    {
+      "sha": "1f9e1ab979374da6583611aef9a0a8f6e9d4bba0",
+      "command": "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m pytest -q",
+      "exit_code": 0,
+      "output": ".........................                                                [100%]\n25 passed in 0.23s\n"
+    },
+    {
+      "sha": "f4831bb0cfb7fddbe6fb8344adca9488a32d14d3",
+      "command": "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m pytest -q --junitxml=/private/tmp/aj-m2-evidence/f4831bb0cfb7fddbe6fb8344adca9488a32d14d3.xml",
+      "exit_code": 0,
+      "output": "............................                                             [100%]\n- generated xml file: /private/tmp/aj-m2-evidence/f4831bb0cfb7fddbe6fb8344adca9488a32d14d3.xml -\n28 passed in 0.25s\n"
+    },
+    {
+      "sha": "02cf3323784ac1213dc23644f95bb438d5eca749",
+      "command": "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m pytest -q --junitxml=/private/tmp/aj-m2-evidence/02cf3323784ac1213dc23644f95bb438d5eca749.xml",
+      "exit_code": 0,
+      "output": "......................................................                   [100%]\n- generated xml file: /private/tmp/aj-m2-evidence/02cf3323784ac1213dc23644f95bb438d5eca749.xml -\n54 passed in 0.21s\n"
+    },
+    {
+      "sha": "b6b27c41eaccd24c2300c433620ec4c5d1db71bb",
+      "command": "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m pytest -q --junitxml=/private/tmp/aj-m2-evidence/b6b27c41eaccd24c2300c433620ec4c5d1db71bb.xml",
+      "exit_code": 0,
+      "output": "........................................................                 [100%]\n- generated xml file: /private/tmp/aj-m2-evidence/b6b27c41eaccd24c2300c433620ec4c5d1db71bb.xml -\n56 passed in 0.23s\n"
+    },
+    {
+      "sha": "af92ec02cb7b58edd72327289a50dd8be3a63d6f",
+      "command": "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m pytest -q --junitxml=/private/tmp/aj-m2-evidence/af92ec02cb7b58edd72327289a50dd8be3a63d6f.xml",
+      "exit_code": 0,
+      "output": ".........................................................                [100%]\n- generated xml file: /private/tmp/aj-m2-evidence/af92ec02cb7b58edd72327289a50dd8be3a63d6f.xml -\n57 passed in 0.26s\n"
+    },
+    {
+      "sha": "593c911ec066e32a3bc2376b21ca6774d3f264d6",
+      "command": "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m pytest -q --junitxml=/private/tmp/aj-m2-evidence/593c911ec066e32a3bc2376b21ca6774d3f264d6.xml",
+      "exit_code": 0,
+      "output": "..........................................................               [100%]\n- generated xml file: /private/tmp/aj-m2-evidence/593c911ec066e32a3bc2376b21ca6774d3f264d6.xml -\n58 passed in 0.22s\n"
+    },
+    {
+      "sha": "b6a7028558a6a5677838f4135aba4756d36497e6",
+      "command": "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m pytest -q --junitxml=/private/tmp/aj-m2-evidence/b6a7028558a6a5677838f4135aba4756d36497e6.xml",
+      "exit_code": 0,
+      "output": "..........................................................               [100%]\n- generated xml file: /private/tmp/aj-m2-evidence/b6a7028558a6a5677838f4135aba4756d36497e6.xml -\n58 passed in 0.23s\n"
+    },
+    {
+      "sha": "fcf84bd9ff917774e306121f518aa94f17edc594",
+      "command": "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m pytest -q --junitxml=/private/tmp/aj-m2-evidence/fcf84bd9ff917774e306121f518aa94f17edc594.xml",
+      "exit_code": 0,
+      "output": "........................................................................ [ 72%]\n............................                                             [100%]\n- generated xml file: /private/tmp/aj-m2-evidence/fcf84bd9ff917774e306121f518aa94f17edc594.xml -\n100 passed in 0.69s\n"
+    }
+  ]
+}
