@@ -234,7 +234,11 @@ def status(*, cfg: CertConfig, ledger: Ledger, now: int) -> dict:
                               "quality_lower_95": round(quality_lower(m), 4),
                               "latency_p95_ms": m.evidence.latency_p95_ms, "families": sorted(m.evidence.families),
                               "source": m.evidence.source}
+    from .diagnostics import snapshot as readiness_snapshot
+    readiness = readiness_snapshot()
     return {"mode": "certification", "environment": cfg.environment, "enabled": cfg.enabled,
+            "ready": readiness["ready"], "blockers": readiness["blockers"],
+            "signing_key_ids": readiness["signing_key_ids"],
             "approved_providers": sorted(cfg.approved_providers), "policy_version": POLICY.version,
             "registry_version": snapshot.version, "max_run_budget": str(cfg.max_run_budget),
             "budget": ledger.budget(daily_cap=cfg.daily_budget, now=now), "health": ledger.health(now=now),

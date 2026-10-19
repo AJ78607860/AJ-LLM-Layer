@@ -34,3 +34,18 @@ app.add_middleware(ReceiverEnvelope)
 # off unless AJ_LLM_LAYER_CERTIFICATION_ENABLED=true). Never executes inference.
 from .certification.api import router as certification_router
 app.include_router(certification_router)
+from contextlib import asynccontextmanager
+from .certification.diagnostics import log_startup as _log_certification_config
+
+_base_lifespan = app.router.lifespan_context
+
+
+@asynccontextmanager
+async def _lifespan(application):
+    # One content-free readiness line per process start (diagnostics never raise).
+    _log_certification_config()
+    async with _base_lifespan(application) as state:
+        yield state
+
+
+app.router.lifespan_context = _lifespan

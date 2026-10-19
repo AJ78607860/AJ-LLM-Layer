@@ -96,39 +96,43 @@ Observations worth acting on:
 3. AJ's cost guard refused the first local attempt (run as root → data-root safety → kill switch treated as on).
    The abandoned hold from that crash was later charged in full by the sweeper, as designed.
 
-## Staging run: what is needed (owner actions; nothing here was changed)
+## Staging run: state and remaining steps (updated 19 Oct, 21:30)
 
-Verified read-only on 19 Oct: `aj-llm-layer-staging` is **free plan**, branch `feat/internal-shadow-bridge`,
-live deploy `dep-db847k689jmc73c52g4g` (commit `9eb10992`), no disk; **no Key Value instance exists**.
+Decisions D-A/D-B/D-C approved by the owner (19 Oct, 16:54): free Key Value for replay, ephemeral ledger
+accepted for synthetic runs, $0.25/day and $0.02/run.
 
-Decisions only the owner can make:
-- **D-A Replay store.** Staging signed auth requires `rediss://` with a password (local replay is refused on
-  staging). Recommended: one Render Key Value instance for synthetic staging, used via its TLS external URL.
-  Free Key Value is not durable: after a restart, apply the documented 120-second quarantine (rotate the kid).
-- **D-B Ledger durability.** Free plan has no disk, so the SQLite ledger resets on restart/spin-down.
-  Recommended for this run: accept (tiny caps; AJ's cost guard and the OpenAI "AJ Dev" project limit are the
-  backstops). A durable ledger (disk or Postgres) is required before any non-synthetic use.
-- **D-C Budget.** Recommended `AJ_LLM_LAYER_CERT_DAILY_BUDGET_USD=0.25`, `AJ_LLM_LAYER_CERT_MAX_RUN_USD=0.02`.
-  A full run (`--repeat 5`) is ~21 calls on gpt-5.6-luna, a few cents at the (unverified) table prices.
+Done (verified read-only on Render):
+- `aj-llm-layer-staging` tracks `main`, live on `a6152e0` (#14); clean startup.
+- `aj-staging` live on a commit containing AJ #679.
+- Key Value `aj-llm-replay-staging` (`red-dbb3s0igjjms73ctmhsg`): free, Frankfurt, `noeviction`, persistence
+  off, inbound allow-list = the Layer's two outbound ranges `74.220.51.0/24`, `74.220.59.0/24` only.
 
-Then, in order:
-1. Merge the two PRs (Layer integration PR into `main`; AJ harness PR into `release/staging`).
-2. Point `aj-llm-layer-staging` at `main` and deploy manually. Set on the Layer only:
-   `AJ_ENVIRONMENT=staging`, `AJ_LLM_LAYER_SIGNING_KEYS`, `AJ_LLM_LAYER_REPLAY_BACKEND=redis`,
-   `AJ_LLM_LAYER_REPLAY_REDIS_URL`, `AJ_LLM_LAYER_CERTIFICATION_ENABLED=true`,
-   `AJ_LLM_LAYER_CERT_DAILY_BUDGET_USD`, `AJ_LLM_LAYER_CERT_MAX_RUN_USD`,
-   `AJ_LLM_LAYER_CERT_LEDGER_PATH=/tmp/aj-cert-ledger.sqlite3`.
-3. On `aj-staging` set the staging-only signing pair `AJ_LLM_LAYER_SIGNING_KEYS` + `AJ_LLM_LAYER_SIGNING_KID`
-   (same kid:key as the Layer). Do **not** set `AJ_LLM_LAYER_CERTIFICATION_ENABLED` on the service, and do not
-   change `AJ_LLM_LAYER_SHADOW_ENABLED` (stays off). Deploy release/staging manually.
-4. Run from the aj-staging Shell (flag set only for this one command, so it is off again afterwards):
+Found and fixed after the merge (follow-up PRs): AJ refused every bootstrap probe because a later hardening
+commit expected a `PROBE` status the Layer never sends; contract tests now replay real Layer responses. The
+free-plan Layer sleeps after 15 minutes idle; the runner now wakes it first.
+
+Remaining, in order:
+1. Merge the follow-ups (Layer diagnostics PR; AJ probe-gate/preflight PR) and deploy both services manually.
+2. Layer → Environment. `AJ_LLM_LAYER_SIGNING_KEYS` **already existed** on the Layer before this work: keep it
+   unless the owner decides otherwise, and make aj-staging hold the same `kid:key` pair. Set:
+   `AJ_ENVIRONMENT=staging`, `AJ_LLM_LAYER_REPLAY_BACKEND=redis`, `AJ_LLM_LAYER_REPLAY_REDIS_URL` (External
+   `rediss://` URL), `AJ_LLM_LAYER_CERTIFICATION_ENABLED=true`, `AJ_LLM_LAYER_CERT_DAILY_BUDGET_USD=0.25`,
+   `AJ_LLM_LAYER_CERT_MAX_RUN_USD=0.02`, `AJ_LLM_LAYER_CERT_LEDGER_PATH=/tmp/aj-cert-ledger.sqlite3`.
+   The startup log line `certification_config` must then show `"ready": true` and the expected key ID(s).
+3. aj-staging → Environment: `AJ_LLM_LAYER_SIGNING_KEYS` (same pair) and `AJ_LLM_LAYER_SIGNING_KID` (its kid).
+   Leave `AJ_LLM_LAYER_SHADOW_ENABLED` off.
+4. aj-staging Shell, preflight (no execution, no spend; prints named blockers):
    ```
    AJ_LLM_LAYER_CERTIFICATION_ENABLED=true AJ_LLM_LAYER_AUTH_MODE=signed \
    AJ_LLM_LAYER_CERT_URL=https://aj-llm-layer-staging.onrender.com \
-   ops/bin/aj python3 /app/scripts/llm_layer_certification_run.py --repeat 5 --include-slow \
+   ops/bin/aj python3 /app/scripts/llm_layer_certification_run.py --preflight
+   ```
+5. Same prefix, the run:
+   ```
+   ... ops/bin/aj python3 /app/scripts/llm_layer_certification_run.py --repeat 5 --include-slow \
      --out /var/data/llm-layer-cert/run-$(date -u +%Y%m%dT%H%M%SZ)
    ```
-   Exit 0 = every fixture and drill met expectation. The report has no prompts, responses or secrets.
+   Exit 0 = every fixture and drill met expectation.
 
 Go / no-go for "verified on staging": exit 0; production fingerprint unchanged; replay `[200, 401]`;
 ledger `overspend` 0 on every outcome; no content in Layer logs; spend within cap.
