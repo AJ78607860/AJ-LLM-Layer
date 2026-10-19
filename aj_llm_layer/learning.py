@@ -1,4 +1,4 @@
-"""Online, zero-token contextual bandit with safe offline-only updates.
+"""Offline, zero-token outcome statistics; never connected to live routing.
 
 Inspired by contextual-bandit research; independently implemented, not copied
 from Vowpal Wabbit. Only independently validated rewards should be submitted.
@@ -6,7 +6,14 @@ from Vowpal Wabbit. Only independently validated rewards should be submitted.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from math import log, sqrt
+from math import isfinite, sqrt
+
+
+def _valid_metric(value: object) -> bool:
+    try:
+        return type(value) in (int, float) and isfinite(value) and value >= 0
+    except OverflowError:
+        return False
 
 
 @dataclass(frozen=True)
@@ -27,14 +34,22 @@ class Bandit:
     costs: dict[tuple[str, str], float] = field(default_factory=dict)
 
     def observe(self, item: Outcome) -> None:
-        if not item.independently_validated:
+        if item.independently_validated is not True:
             raise ValueError("outcome requires independent validation")
-        if item.total_cost_usd < 0 or item.latency_ms < 0:
+        if (any(not _valid_metric(v)
+                for v in (item.total_cost_usd, item.latency_ms))
+                or type(item.successful) is not bool):
             raise ValueError("invalid metrics")
+        if any(not isinstance(v, str) or not v.strip()
+               for v in (item.task_family, item.model_id)):
+            raise ValueError("invalid outcome identity")
         key = (item.task_family, item.model_id)
+        new_cost = self.costs.get(key, 0) + item.total_cost_usd
+        if not isfinite(new_cost):
+            raise ValueError("aggregate cost overflow")
         self.counts[key] = self.counts.get(key, 0) + 1
         self.successes[key] = self.successes.get(key, 0) + int(item.successful)
-        self.costs[key] = self.costs.get(key, 0) + item.total_cost_usd
+        self.costs[key] = new_cost
 
     def quality_lower_bound(self, family: str, model_id: str) -> float:
         key = (family, model_id)

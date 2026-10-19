@@ -27,3 +27,5 @@ class BenchmarkCandidate(BaseModel):
 # Metadata-only internal shadow endpoint; no model execution.
 from .shadow import router as shadow_router
 app.include_router(shadow_router)
+from .observability import ReceiverEnvelope
+app.add_middleware(ReceiverEnvelope)
