@@ -148,12 +148,13 @@ async def outcome_route(request: Request, x_aj_service_auth: str | None = Header
     return JSONResponse(result, headers={_shadow.CORRELATION_HEADER: cid})
 
 
-@router.get(STATUS_PATH)
+@router.post(STATUS_PATH)
 async def status_route(request: Request, x_aj_service_auth: str | None = Header(default=None)):
     cfg = _gate()
     _reject_ambiguous(request, STATUS_PATH)
     body = await _read_body(request)
-    await run_in_threadpool(_authenticate, x_aj_service_auth, method="GET", path=STATUS_PATH, body=body)
+    # POST with an empty body so AJ's pinned POST-only transport can read it; nothing is written.
+    await run_in_threadpool(_authenticate, x_aj_service_auth, method="POST", path=STATUS_PATH, body=body)
     ledger = _ledger(cfg)
     try:
         return JSONResponse(await run_in_threadpool(service.status, cfg=cfg, ledger=ledger, now=int(time.time())))

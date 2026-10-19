@@ -78,7 +78,7 @@ def test_production_and_unset_environment_expose_nothing(cert, monkeypatch):
         monkeypatch.setenv("AJ_ENVIRONMENT", env)
         assert call(DECIDE, decide_payload()).status_code == 404
         assert call(OUTCOME, {"x": 1}).status_code == 404
-        assert call(STATUS, method="GET").status_code == 404
+        assert call(STATUS).status_code == 404
 
 
 def test_disabled_flag_refuses_new_decisions_after_auth(cert, monkeypatch):
@@ -173,7 +173,7 @@ def test_validated_outcomes_graduate_probe_to_evidence_based_route(cert):
     assert record["decision"]["status"] == "RECOMMENDATION"
     assert record["grant"]["kind"] == "route" and record["grant"]["model_id"] == "openai/gpt-5.6-luna"
     assert record["grant"]["max_attempts"] == 2
-    status = call(STATUS, method="GET").json()
+    status = call(STATUS).json()
     assert status["evidence"]["openai/gpt-5.6-luna"]["samples"] == 20
     assert status["evidence"]["openai/gpt-5.6-luna"]["source"] == "synthetic"
 
@@ -225,10 +225,11 @@ def test_abandoned_grant_is_charged_in_full_and_closed(cert, monkeypatch):
     monkeypatch.setenv("AJ_LLM_LAYER_CERT_GRANT_TTL_SECONDS", "10")
     grant = call(DECIDE, decide_payload()).json()["grant"]
     real = time.time
-    monkeypatch.setattr(time, "time", lambda: real() + 30)
+    assert grant["expires_at"] - int(real()) >= grant["max_attempts"] * grant["timeout_seconds"] + 30 - 1
+    monkeypatch.setattr(time, "time", lambda: real() + 120)
     response = report(grant)
     assert response.status_code == 409 and response.json()["code"] == "GRANT_EXPIRED"
-    budget = call(STATUS, method="GET").json()["budget"]
+    budget = call(STATUS).json()["budget"]
     assert Decimal(budget["spent"]) == Decimal(grant["reserved"]) and budget["held_count"] == 0
 
 
@@ -315,3 +316,9 @@ def test_certification_never_imports_execution_adapter():
     import aj_llm_layer.certification.service as svc
     source = open(svc.__file__).read()
     assert "execution" not in source and "httpx" not in source and "requests" not in source
+
+
+def test_grant_outlives_all_attempts(cert, monkeypatch):
+    monkeypatch.setenv("AJ_LLM_LAYER_CERT_GRANT_TTL_SECONDS", "10")
+    grant = call(DECIDE, decide_payload()).json()["grant"]
+    assert grant["expires_at"] >= int(time.time()) + grant["max_attempts"] * grant["timeout_seconds"] + 29

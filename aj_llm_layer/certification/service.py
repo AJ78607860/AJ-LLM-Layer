@@ -130,8 +130,12 @@ def decide(req: DecideRequest, *, cfg: CertConfig, ledger: Ledger, correlation_i
             "max_output_tokens": min(decision.task["output_tokens"], cfg.max_output_tokens, model.output_limit),
             "max_attempts": attempts,
             "timeout_seconds": min(MAX_ATTEMPT_TIMEOUT_SECONDS, POLICY.max_latency_ms // 1000),
-            "price": entry.price, "expires_at": now + cfg.grant_ttl_seconds,
+            "price": entry.price,
         }
+        # The grant must outlive every permitted attempt plus reporting time, or a slow provider
+        # would be charged the full hold as "abandoned".
+        grant["expires_at"] = now + max(cfg.grant_ttl_seconds,
+                                        grant["max_attempts"] * grant["timeout_seconds"] + 30)
         try:
             ledger.reserve_and_grant(grant, amount=amount, daily_cap=cfg.daily_budget, max_run=cfg.max_run_budget,
                                      max_concurrent=cfg.max_concurrent, now=now)
@@ -211,6 +215,7 @@ def outcome(req: OutcomeRequest, *, cfg: CertConfig, ledger: Ledger, now: int) -
 
 
 def status(*, cfg: CertConfig, ledger: Ledger, now: int) -> dict:
+    ledger.sweep(now=now)
     snapshot, _, open_circuits = load_registry(cfg, ledger, now=now)
     evidence = {}
     for m in snapshot.models:
