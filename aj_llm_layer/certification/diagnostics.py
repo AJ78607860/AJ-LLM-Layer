@@ -17,19 +17,35 @@ from . import config as cert_config
 _log = logging.getLogger("uvicorn.error")
 
 
-def _replay_status() -> str:
+def _failure_category(exc: Exception) -> str:
+    """Inspect exception types only; messages can contain authenticated URLs."""
+    categories = {"SSLCertVerificationError": "tls_certificate", "SSLError": "tls",
+                  "TimeoutError": "timeout", "AuthenticationError": "authentication",
+                  "ConnectionError": "connection", "ResponseError": "redis_response"}
+    seen = set()
+    result = "unknown"
+    while exc is not None and id(exc) not in seen and len(seen) < 8:
+        seen.add(id(exc))
+        category = categories.get(type(exc).__name__)
+        if category:
+            result = category
+        exc = exc.__cause__ or exc.__context__
+    return result
+
+
+def _replay_status() -> tuple[str, str | None]:
     backend = (os.getenv("AJ_LLM_LAYER_REPLAY_BACKEND") or "redis").strip()
     try:
         from ..replay import get_replay_store, RedisReplayStore
         store = get_replay_store()
-    except Exception:
-        return "unavailable"
+    except Exception as exc:
+        return "unavailable", _failure_category(exc)
     if isinstance(store, RedisReplayStore):
         try:
-            return "ok" if store.client.ping() else "unreachable"
-        except Exception:
-            return "unreachable"
-    return "local" if backend == "local" else "unavailable"
+            return ("ok", None) if store.client.ping() else ("unreachable", "ping_rejected")
+        except Exception as exc:
+            return "unreachable", _failure_category(exc)
+    return ("local", None) if backend == "local" else ("unavailable", "configuration")
 
 
 def _ledger_status(path: str) -> str:
@@ -45,6 +61,7 @@ def _ledger_status(path: str) -> str:
 
 def snapshot() -> dict:
     cfg = cert_config.load()
+    replay_status, replay_failure = _replay_status()
     keys = service_auth.parse_keys(os.getenv("AJ_LLM_LAYER_SIGNING_KEYS", ""))
     raw_entries = [e for e in (os.getenv("AJ_LLM_LAYER_SIGNING_KEYS") or "").split(",") if e.strip()]
     data = {
@@ -54,7 +71,8 @@ def snapshot() -> dict:
         "enabled": cfg.enabled,
         "signing_key_ids": sorted(keys),
         "signing_entries_rejected": max(0, len(raw_entries) - len(keys)),
-        "replay": _replay_status(),
+        "replay": replay_status,
+        "replay_failure": replay_failure,
         "ledger": _ledger_status(cfg.ledger_path),
         "daily_budget_usd": str(cfg.daily_budget),
         "max_run_usd": str(cfg.max_run_budget),
