@@ -1,12 +1,18 @@
 """Atomic shared nonce registry. Stores nonce digests only, never credentials.
 
-Redis must be dedicated and authenticated/TLS. It should also be non-evicting and durable, but the registry no
-longer depends on that for safety: an **epoch marker** lives inside the same sorted set (score +inf, so expiry
-cleanup never removes it). If Redis restarts without persistence, is flushed, or evicts the key, the marker goes
-with the nonces. The next check recreates it and, for one credential lifetime plus clock skew
-(``QUARANTINE_SECONDS``), refuses every credential that could have been issued before that moment (503): a nonce
-that was seen before the loss can never be accepted again. The key has no TTL, so ``volatile-*`` eviction
-policies cannot select it.
+Redis must be dedicated and authenticated/TLS. Durability and eviction are no longer trusted for safety: an
+**epoch marker** ``epoch:<redis time>:<run_id>`` lives inside the same sorted set (score +inf, so expiry cleanup
+never removes it). A new epoch starts, and for one credential lifetime plus skew (``QUARANTINE_SECONDS``) every
+credential that could pre-date it is refused (503), whenever:
+
+* the set is lost (restart without persistence, flush, whole-key eviction): the marker goes with it;
+* Redis restarted or failed over (its ``run_id`` changed), which covers restoring OLDER state (an RDB snapshot,
+  the AOF ``everysec`` tail, an async replica) where the marker survives but recent nonces don't.
+
+The key has no TTL (``PERSIST`` also clears one left by older code), so ``volatile-*`` eviction can't pick it.
+Assumptions: the script may call ``INFO server`` (if it can't, every check fails closed with 503), and the Redis
+clock doesn't run backwards across a restart by more than the restart gap. A corrupt marker also fails closed:
+remove the ``+inf`` member from ``aj:llm:replay:v1:<env>`` to recover (a quarantine follows).
 """
 from functools import lru_cache
 import hashlib
@@ -16,8 +22,8 @@ from urllib.parse import urlsplit
 
 from .service_auth import MAX_LIFETIME_SECONDS, ReplayCache, SKEW_SECONDS
 
-# A credential with exp < epoch + this could have been issued (iat <= exp - MAX_LIFETIME) before the epoch, by an
-# issuer clock up to SKEW_SECONDS ahead of Redis.
+# The script refuses exp > now + 90 at use, so a credential used at Redis time t <= epoch has exp <= epoch + 90:
+# refusing exp <= epoch + QUARANTINE_SECONDS covers every credential that could have been used before the epoch.
 QUARANTINE_SECONDS = MAX_LIFETIME_SECONDS + SKEW_SECONDS
 
 
@@ -26,7 +32,7 @@ class ReplayUnavailable(Exception):
 
 
 # One bounded sorted set; Lua serializes the epoch check, expiry, duplicate detection and capacity.
-# Returns 1 new, 0 replay, -1 full, -2 expired, -3 too far ahead, -4 epoch quarantine, -5 corrupt marker.
+# Returns 1 new, 0 replay, -1 full, -2 expired, -3 too far ahead, -4 epoch quarantine, -5 corrupt marker/INFO.
 # Redis server time avoids relying on clocks shared by separate receiver hosts.
 SCRIPT = """
 local clock = redis.call('TIME')
@@ -34,16 +40,22 @@ local now = tonumber(clock[1])
 local expires = tonumber(ARGV[2])
 if expires <= now then return -2 end
 if expires - now > 90 then return -3 end
+local info = redis.call('INFO', 'server')
+local run_id = string.match(info, 'run_id:(%x+)')
+if not run_id then return -5 end
 local marker = redis.call('ZRANGEBYSCORE', KEYS[1], '+inf', '+inf', 'LIMIT', 0, 1)
-local epoch
-if #marker == 0 then
-  epoch = now
-  redis.call('ZADD', KEYS[1], '+inf', 'epoch:' .. now)
-else
-  epoch = tonumber(string.sub(marker[1], 7))
-  if epoch == nil then return -5 end
+local epoch = nil
+if #marker == 1 then
+  local at, owner = string.match(marker[1], '^epoch:(%d+):(%x+)$')
+  if not at then return -5 end
+  if owner == run_id then epoch = tonumber(at) else redis.call('ZREM', KEYS[1], marker[1]) end
 end
-if expires < epoch + tonumber(ARGV[4]) then return -4 end
+if epoch == nil then
+  epoch = now
+  redis.call('ZADD', KEYS[1], '+inf', 'epoch:' .. now .. ':' .. run_id)
+end
+redis.call('PERSIST', KEYS[1])
+if expires <= epoch + tonumber(ARGV[4]) then return -4 end
 redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now)
 if redis.call('ZSCORE', KEYS[1], ARGV[1]) then return 0 end
 if redis.call('ZCARD', KEYS[1]) - 1 >= tonumber(ARGV[3]) then return -1 end

@@ -15,9 +15,13 @@ redis = pytest.importorskip('redis')
 from aj_llm_layer.replay import QUARANTINE_SECONDS, RedisReplayStore, ReplayUnavailable
 
 
+def marker(client, at):
+    return 'epoch:%d:%s' % (at, client.info('server')['run_id'])
+
+
 def settled(client, environment='test'):
-    """Mark the registry as having existed for longer than one credential lifetime (no quarantine)."""
-    client.zadd('aj:llm:replay:v1:' + environment, {'epoch:%d' % (int(time.time()) - 1000): float('inf')})
+    """Mark the registry as having existed (on this Redis run) for longer than one credential lifetime."""
+    client.zadd('aj:llm:replay:v1:' + environment, {marker(client, int(time.time()) - 1000): float('inf')})
     return client
 
 
@@ -78,7 +82,10 @@ import sys,time,redis
 from aj_llm_layer.replay import RedisReplayStore
 s=RedisReplayStore(redis.Redis(unix_socket_path=sys.argv[1]),environment='test')
 n=int(time.time())
-print(int(s.add_if_absent('shared-synthetic-nonce',n+30,n)))
+try:
+    print(int(s.add_if_absent('shared-synthetic-nonce',n+30,n)))
+except Exception as exc:
+    print(type(exc).__name__)
 '''
     def worker():
         return subprocess.check_output([sys.executable,'-c',code,server['socket']],text=True).strip()
@@ -89,7 +96,9 @@ print(int(s.add_if_absent('shared-synthetic-nonce',n+30,n)))
     server['process'].wait(timeout=5)
     proc,client=server['start']()
     server.update(process=proc,client=client)
-    assert worker()=='0'
+    # A restarted Redis (new run_id) starts a new epoch: the replay is refused by the quarantine (503), even
+    # though persistence kept the nonce.
+    assert worker()=='ReplayUnavailable'
     proc.terminate();proc.wait(timeout=5)
     store=RedisReplayStore(client,environment='test')
     now=int(time.time())
@@ -136,8 +145,8 @@ def test_flush_starts_a_new_epoch_and_quarantines(server):
     c.flushall()
     with pytest.raises(ReplayUnavailable):
         store.add_if_absent('before-flush',now+30,now)
-    marker=c.zrangebyscore(store.key,'+inf','+inf')
-    assert len(marker)==1 and marker[0].startswith(b'epoch:')
+    found=c.zrangebyscore(store.key,'+inf','+inf')
+    assert len(found)==1 and found[0].startswith(b'epoch:')
 
 
 def test_quarantine_ends_after_one_credential_lifetime(server):
@@ -145,10 +154,10 @@ def test_quarantine_ends_after_one_credential_lifetime(server):
     now=int(time.time())
     with pytest.raises(ReplayUnavailable):
         store.add_if_absent('first-ever-use',now+30,now)               # brand-new registry
-    epoch=int(c.zrangebyscore(store.key,'+inf','+inf')[0].split(b':')[1])
-    # A credential that expires after epoch + QUARANTINE_SECONDS was issued after the epoch: accepted.
-    c.zrem(store.key,'epoch:%d' % epoch)
-    c.zadd(store.key,{'epoch:%d' % (now - QUARANTINE_SECONDS + 29): float('inf')})
+    current=c.zrangebyscore(store.key,'+inf','+inf')[0]
+    # A credential that expires after epoch + QUARANTINE_SECONDS was used after the epoch: accepted.
+    c.zrem(store.key,current)
+    c.zadd(store.key,{marker(c, now - QUARANTINE_SECONDS + 29): float('inf')})
     assert store.add_if_absent('after-quarantine',now+30,now)
     assert not store.add_if_absent('after-quarantine',now+30,now)
 
@@ -183,3 +192,48 @@ def test_eviction_can_not_resurrect_a_nonce(server, policy):
     except ReplayUnavailable:
         accepted=False
     assert accepted is False
+
+
+def test_restore_of_older_state_after_restart_never_accepts_a_used_nonce(server):
+    """Reviewer finding: persistence that restores OLDER state (RDB snapshot, AOF tail, async replica) keeps the
+    marker but loses the newest nonces. The restarted Redis has a new run_id, so a new epoch quarantines."""
+    c=settled(server['client']); store=RedisReplayStore(c,environment='test')
+    now=int(time.time())
+    assert store.add_if_absent('before-snapshot',now+30,now)
+    c.config_set('appendonly','no'); c.save()                     # the snapshot on disk
+    assert store.add_if_absent('after-snapshot',now+30,now)       # used, but never persisted
+    c.shutdown(nosave=True); server['process'].wait(timeout=5)   # crash: reload the older snapshot
+    proc,client=server['start'](persistent=False)
+    server.update(process=proc,client=client)
+    store=RedisReplayStore(client,environment='test')
+    assert client.zrangebyscore(store.key,'+inf','+inf')          # the stale marker survived the restore
+    with pytest.raises(ReplayUnavailable):
+        store.add_if_absent('after-snapshot',now+30,now)
+
+
+def test_loss_in_the_same_second_as_the_use_still_quarantines(server):
+    """Reviewer finding: exp == epoch + 90 (use, loss and replay in one Redis second) was accepted."""
+    c=settled(server['client']); store=RedisReplayStore(c,environment='test')
+    t=int(c.time()[0]); exp=t+90
+    c.flushall()
+    c.zadd(store.key,{marker(c, t): float('inf')})               # the epoch recreated in that same second
+    with pytest.raises(ReplayUnavailable):
+        store.add_if_absent('edge',exp,t)
+
+
+def test_ttl_left_by_older_code_is_cleared(server):
+    """Reviewer finding: a key written by the previous script kept EXPIRE 180, so the marker expired with it and a
+    second quarantine followed. The script now PERSISTs the key."""
+    c=settled(server['client']); store=RedisReplayStore(c,environment='test')
+    c.expire(store.key,180)
+    now=int(time.time())
+    assert store.add_if_absent('after-deploy',now+30,now)
+    assert c.ttl(store.key)==-1
+
+
+def test_old_marker_format_fails_closed(server):
+    c=server['client']; store=RedisReplayStore(c,environment='test')
+    c.zadd(store.key,{'epoch:%d' % (int(time.time()) - 1000): float('inf')})
+    now=int(time.time())
+    with pytest.raises(ReplayUnavailable):
+        store.add_if_absent('any',now+30,now)
