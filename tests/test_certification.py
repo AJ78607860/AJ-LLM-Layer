@@ -490,3 +490,82 @@ def test_lifespan_wrapper_keeps_app_working_and_logs_once(monkeypatch, caplog):
             assert client.get("/healthz").status_code == 200
     lines = [r.getMessage() for r in caplog.records if "certification_config" in r.getMessage()]
     assert len(lines) == 1
+
+
+# ------------------------------------------------------- replay diagnostics name the failure (fixed words only)
+
+def _snap_with_ping_error(monkeypatch, exc, url="rediss://:topsecret@frankfurt-keyvalue.render.com:6379"):
+    from aj_llm_layer import replay
+    from aj_llm_layer.certification import diagnostics
+
+    class _Client:
+        def ping(self):
+            raise exc
+
+    monkeypatch.setenv("AJ_LLM_LAYER_REPLAY_BACKEND", "redis")
+    monkeypatch.setenv("AJ_LLM_LAYER_REPLAY_REDIS_URL", url)
+    monkeypatch.setattr(replay, "get_replay_store",
+                        lambda: replay.RedisReplayStore(_Client(), environment="staging"))
+    snap = diagnostics.snapshot()
+    assert "topsecret" not in json.dumps(snap) and "frankfurt-keyvalue" not in json.dumps(snap)
+    return snap
+
+
+def _wrapped(outer, inner):
+    try:
+        try:
+            raise inner
+        except BaseException as e:
+            raise outer from e
+    except BaseException as final:
+        return final
+
+
+@pytest.mark.parametrize("make_exc,expected", [
+    (lambda rx: rx.AuthenticationError("WRONGPASS topsecret"), "auth"),
+    (lambda rx: rx.TimeoutError("Timeout connecting"), "timeout"),
+    (lambda rx: _wrapped(rx.ConnectionError("x"), __import__("ssl").SSLError("bad handshake")), "tls"),
+    (lambda rx: _wrapped(rx.ConnectionError("x"), __import__("socket").gaierror("no host")), "dns"),
+    (lambda rx: _wrapped(rx.ConnectionError("x"), ConnectionRefusedError()), "refused"),
+    (lambda rx: _wrapped(rx.ConnectionError("x"), ConnectionResetError()), "reset"),
+    (lambda rx: rx.ResponseError("NOPERM topsecret"), "server_rejected"),
+    (lambda rx: ValueError("topsecret"), "other:ValueError"),
+])
+def test_replay_unreachable_reports_error_class(cert, monkeypatch, make_exc, expected):
+    from redis import exceptions as rx
+    snap = _snap_with_ping_error(monkeypatch, make_exc(rx))
+    assert snap["replay"] == "unreachable" and snap["replay_error"] == expected
+    assert snap["replay_url"] == {"url": "set", "scheme": "rediss", "host_kind": "render_external", "password": True}
+    assert "REPLAY_STORE_UNREACHABLE" in snap["blockers"]
+
+
+@pytest.mark.parametrize("url,shape", [
+    ("", {"url": "missing"}),
+    ("redis://red-abc123:6379", {"url": "set", "scheme": "redis", "host_kind": "render_internal", "password": False}),
+    ("rediss://red-abc123:6379", {"url": "set", "scheme": "rediss", "host_kind": "render_internal", "password": False}),
+    ("rediss://u:pw@cache.example.net:6379", {"url": "set", "scheme": "rediss", "host_kind": "other", "password": True}),
+    ("rediss://u:pw@h.render.com:notaport", {"url": "malformed"}),
+])
+def test_replay_unavailable_reports_url_shape_without_values(cert, monkeypatch, url, shape):
+    from aj_llm_layer.certification import diagnostics
+    monkeypatch.setenv("AJ_ENVIRONMENT", "staging")
+    monkeypatch.setenv("AJ_LLM_LAYER_REPLAY_BACKEND", "redis")
+    monkeypatch.setenv("AJ_LLM_LAYER_REPLAY_REDIS_URL", url)
+    snap = diagnostics.snapshot()
+    assert snap["replay"] in ("unavailable", "unreachable") and snap["replay_url"] == shape
+    dumped = json.dumps(snap)
+    assert "pw" not in dumped.replace("password", "") and "abc123" not in dumped and "example" not in dumped
+
+
+def test_healthy_replay_adds_no_url_fields(cert, monkeypatch):
+    from aj_llm_layer import replay
+    from aj_llm_layer.certification import diagnostics
+
+    class _Client:
+        def ping(self):
+            return True
+
+    monkeypatch.setattr(replay, "get_replay_store",
+                        lambda: replay.RedisReplayStore(_Client(), environment="staging"))
+    snap = diagnostics.snapshot()
+    assert snap["replay"] in ("ok", "local") and "replay_url" not in snap and "replay_error" not in snap
