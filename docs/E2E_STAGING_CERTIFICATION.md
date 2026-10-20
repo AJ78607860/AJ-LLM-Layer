@@ -137,6 +137,23 @@ Remaining, in order:
 Go / no-go for "verified on staging": exit 0; production fingerprint unchanged; replay `[200, 401]`;
 ledger `overspend` 0 on every outcome; no content in Layer logs; spend within cap.
 
+## Reading `REPLAY_STORE_*` blockers
+
+When the replay store is not ready, `certification_config` adds `replay_url` (fixed words only: whether a URL
+is set, its scheme, `host_kind` = `render_external` / `render_internal` / `loopback` / `other`, and whether it
+has a password) and, if a connection was attempted, `replay_error`:
+
+| `replay_error` | Usual cause on Render |
+|---|---|
+| `timeout` | the Key Value's inbound allow-list does not include the Layer's outbound ranges |
+| `auth` | the password in the URL is wrong or stale |
+| `tls` | `rediss://` pointed at the internal host, which has no TLS: use the External URL |
+| `dns` | hostname typo, or the internal hostname used from outside the private network |
+| `refused` / `reset` | wrong port, or external access turned off |
+
+`REPLAY_STORE_UNAVAILABLE` (no `replay_error`) means the URL was refused before connecting: in staging it must
+be `rediss://` with a password.
+
 ## Rollback
 
 The flag is only set for the one command, so the AJ side is off as soon as it exits. Layer: set
