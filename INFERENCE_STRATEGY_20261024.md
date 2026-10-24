@@ -69,3 +69,30 @@ No supplier winner selected. Compare contract terms, retention/training policy, 
 
 ## Evidence and sequencing
 This work must not weaken or obscure the existing Cloud Build recovery gate. Keep planning isolated from recovery changes. Before implementation, reconcile the latest application and LLM-Layer heads and applicable repository instructions. No claim of implementation, passing tests or production readiness follows from approval of this strategy.
+
+## Additional owner-approved improvements (24 October 2026)
+Planning requirements below are approved; implementation and verification remain pending. Extend the existing components after the source audit rather than introducing parallel services.
+
+| Priority | Work | Existing owner | Required evidence |
+| --- | --- | --- | --- |
+| P0 | Measure end-to-end task outcomes and cost | Cortex, LLM Layer, Mission Control | Correlated model/tool/retry usage; verified success, partial, failed, cancelled and unknown outcomes; completion time; cost per successful task including failed-attempt spend |
+| P0 | Full user-journey evaluation | Existing evaluation harness and component owners | Synthetic coffee scheduling, morning briefing and flight search, including account changes, revoked permissions and supplier failures; expected receipts/state, not model self-reported success |
+| P0 | Durable safe recovery | Cortex and Action Gateway | Restart/resume fixtures before and after external effects; reconcile uncertain outcomes; no blind replay or duplicate messages, bookings or payments |
+| P1 | Fresh, correctable personal context | Sovereign and Context Intelligence | Source, timestamp, validity and confirmed/inferred distinction; corrections invalidate derived retrieval/cache entries; revocation and deletion propagate |
+| P1 | Prompt acknowledgement, progress and cancellation | Cortex, Mission Control and Action Gateway | Acknowledgement does not claim completion; cancellation stops queued work, is rechecked before side effects, and reports already completed or uncertain actions |
+| P1 | Controlled model upgrades | LLM Layer and existing evaluation harness | Versioned fixtures/configuration, baseline comparison, qualified rollback within current privacy policy; no silent activation |
+
+### Untrusted-source boundary
+Treat imported email, webpages, documents and retrieved text as untrusted evidence. Embedded instructions cannot grant permissions, choose unapproved processors, change policy or authorise tool execution. Enforce this through trusted policy and tool validation, not prompt wording alone.
+Acceptance: adversarial retrieved-content fixtures cannot disclose cross-tenant context, alter routing permissions or trigger unauthorised actions. Include this boundary in P0 journey certification.
+
+### Monthly user allowances
+Add an aggregate monthly inference allowance alongside task-level caps, with separately visible foreground, scheduled/background and experimental shadow usage. Select allowance amounts from measured economics; no price or product tier is set here.
+Use atomic reservations across concurrent workers, reconcile usage, and avoid treating unknown charges as zero. Specify the billing timezone, period boundary and handling of in-flight reservations before implementation.
+Acceptance: simultaneous jobs cannot overspend the shared allowance; retries and shadow calls count; exhaustion blocks new billable inference with a clear explanation; month-boundary and reconciliation tests prevent allowance reuse or accidental reset.
+Task history and status access should remain available when inference allowance is exhausted.
+
+### Delivery order and status
+After the source audit, prioritise outcome/cost measurement, durable recovery and full journey tests, including the untrusted-source boundary. Follow with context freshness, cancellation, upgrade controls and aggregate allowance implementation.
+Allocate cross-repository changes to existing owners; this LLM-Layer plan does not transfer Cortex, Sovereign or Action Gateway ownership. Keep recovery work isolated from Cloud Build repair.
+All additions are documentation requirements only until implementation commits and test evidence are recorded. Existing personal-data routing restrictions and release HOLD remain in force.
