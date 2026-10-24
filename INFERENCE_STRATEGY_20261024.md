@@ -96,3 +96,26 @@ Task history and status access should remain available when inference allowance 
 After the source audit, prioritise outcome/cost measurement, durable recovery and full journey tests, including the untrusted-source boundary. Follow with context freshness, cancellation, upgrade controls and aggregate allowance implementation.
 Allocate cross-repository changes to existing owners; this LLM-Layer plan does not transfer Cortex, Sovereign or Action Gateway ownership. Keep recovery work isolated from Cloud Build repair.
 All additions are documentation requirements only until implementation commits and test evidence are recorded. Existing personal-data routing restrictions and release HOLD remain in force.
+
+## Approved everyday-assistance roadmap (24 October 2026)
+Owner approved these roadmap additions in conversation. They are requirements, not implemented features. Reliability, privacy and certification work above retains precedence. Map implementation into existing application components after the source audit; this document does not create new LLM-Layer ownership of application services.
+
+| Order | Capability | Existing owners | Acceptance evidence |
+| --- | --- | --- | --- |
+| 1 | Commitment tracking | Context Intelligence, Cortex, Mission Control | Source-backed records distinguish discussion, proposal and actual commitment; record responsible person, deadline/timezone and status; allow correction, dismissal and completion with evidence |
+| 2 | Dependency tracking | Cortex, Action Gateway | Block dependent actions until prerequisites are verified; detect cycles, missing prerequisites and revoked permissions; expose blocked reasons |
+| 3 | Explainable suggestions | Context Intelligence, Mission Control | Show supporting sources, freshness and assumptions; enforce source access at display time; inferred suggestions cannot authorise execution |
+| 4 | Selective clarification | Cortex | Ask when ambiguous identity, authority, amount, time or scope could materially change the result; use confirmed low-impact preferences when appropriate; do not silently guess recipients |
+| 5 | User-defined autonomy | Sovereign, Cortex, Action Gateway | Reviewable grants bind task scope, permitted actions, recipients/resources, spend, duration and approval requirements; revocation blocks subsequent actions; no implied expansion from model output |
+| 6 | Notification discipline | Cortex, existing notification delivery, Mission Control | Consolidate routine updates, deduplicate, respect channel permissions, quiet hours and timezone; recheck settings at delivery; priority labels cannot override disabled notifications |
+| 7 | Personal preference learning | Sovereign, Context Intelligence | Explicit corrections create reviewable, source-backed preferences; distinguish inferred candidates from confirmed preferences; support edit, delete, expiry and conflict handling; never infer consent |
+| 8 | Weekly value view | Mission Control, existing task/usage records | On-demand view of verified completions, pending deadlines, failures and spend; distinguish unknown/partial outcomes and missing usage; avoid invented time-saved estimates |
+
+### Commitment tracking first
+Start with synthetic fixtures for an explicit promise, tentative discussion, cancelled promise, changed deadline, duplicate ingestion and revoked source. Maintain stable identity across updates, preserve provenance and prevent duplicate tasks or reminders. Statements by other people must not become the user's commitments.
+Retention, deletion and source revocation must propagate to derived records according to Sovereign policy. Treat source instructions as untrusted. Commitment detection alone never grants permission to contact someone, purchase or book.
+
+### Settings and rollout
+Proactive suggestions and notifications remain disabled under current settings until explicitly enabled through existing controls. The weekly view is on demand; this roadmap does not create a scheduled digest or automation. Task history remains governed by its existing setting.
+Autonomy settings must be enforced by deterministic permission checks and cannot bypass required approvals, data routing policy or overall budgets.
+Prototype with synthetic data, verify boundaries and user correction flows, then run relevant integration and regression checks. No new supplier, autonomous activation, merge or deployment follows from roadmap approval.
