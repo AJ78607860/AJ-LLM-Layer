@@ -119,3 +119,112 @@ Retention, deletion and source revocation must propagate to derived records acco
 Proactive suggestions and notifications remain disabled under current settings until explicitly enabled through existing controls. The weekly view is on demand; this roadmap does not create a scheduled digest or automation. Task history remains governed by its existing setting.
 Autonomy settings must be enforced by deterministic permission checks and cannot bypass required approvals, data routing policy or overall budgets.
 Prototype with synthetic data, verify boundaries and user correction flows, then run relevant integration and regression checks. No new supplier, autonomous activation, merge or deployment follows from roadmap approval.
+
+## Architecture and inflow diagrams
+These diagrams describe the approved target design, not certified current implementation. Source audit must map each box to existing services before code changes. "Inflow" covers both authorised source ingestion and task/inference requests.
+
+### 1. Connected information inflow
+```mermaid
+flowchart TD
+    Sources["Connected email, calendars, documents and conversations"]
+    Scope["Sovereign: authenticated account and explicit source scope"]
+    Allowed{"Ingestion allowed?"}
+    Stop["Refuse or stop ingestion"]
+    Import["Existing connectors: incremental import and deduplication"]
+    Boundary["Treat imported content as untrusted evidence"]
+    Store["Tenant-isolated Sovereign storage and index"]
+    Provenance["Record source, access scope, timestamp and validity"]
+    Derive["Context Intelligence: facts, preferences and commitment candidates"]
+    Review["Separate confirmed facts from inferred candidates"]
+    Retrieve["Permission-filtered retrieval for an authorised task"]
+    Change["Source change, correction, deletion or revocation"]
+    Invalidate["Update or invalidate derived records, indexes and caches"]
+    Sources --> Scope --> Allowed
+    Allowed -->|No| Stop
+    Allowed -->|Yes| Import --> Boundary --> Store --> Provenance --> Derive --> Review --> Retrieve
+    Change --> Invalidate --> Store
+```
+
+Read scope is checked during ingestion and again during retrieval. Revocation must block access immediately; cleanup propagates to derived state. Embedding, extraction and summarisation calls made during ingestion are inference requests too: they use the same approved-processor and budget gates as task inference. No raw source content is sent to an alternative provider merely because it is being indexed. Imported instructions never become permissions.
+
+### 2. Task and inference flow
+```mermaid
+flowchart TD
+    In["User request or explicitly enabled workflow"]
+    Identity["Authenticate tenant and load Sovereign scopes"]
+    Cortex["Cortex: restore or create task state"]
+    Context["Retrieve minimal authorised context with provenance"]
+    Clear{"Material ambiguity?"}
+    Ask["Ask user and persist waiting state"]
+    Need{"Model inference needed?"}
+    Code["Deterministic operation"]
+    Gate["LLM Layer: privacy, capability, deadline and budget gate"]
+    Eligible{"Eligible route and reserved budget?"}
+    Refuse["Return explicit refusal or blocked state"]
+    Provider["Approved inference provider"]
+    Validate["Validate output and proposed tool arguments"]
+    Plan["Cortex: next step"]
+    Action{"External action needed?"}
+    Gateway["Action Gateway: recheck scope, approval, cancellation and idempotency"]
+    Permission{"Authorised now?"}
+    Waiting["Persist blocked or approval-waiting state"]
+    Execute["Execute through existing connector"]
+    Verify["Verify receipt or reconcile uncertain outcome"]
+    Outcome["Persist verified result and usage"]
+    UI["Mission Control and permitted response channel"]
+    In --> Identity --> Cortex --> Context --> Clear
+    Clear -->|Yes| Ask
+    Ask -->|User answers| Identity
+    Clear -->|No| Need
+    Need -->|No| Code --> Plan
+    Need -->|Yes| Gate --> Eligible
+    Eligible -->|No| Refuse --> Outcome
+    Eligible -->|Yes| Provider --> Validate --> Plan
+    Plan --> Action
+    Action -->|No| Outcome
+    Action -->|Yes| Gateway --> Permission
+    Permission -->|No| Waiting
+    Waiting -->|Approval or prerequisite changes| Identity
+    Permission -->|Yes| Execute --> Verify --> Outcome
+    Outcome --> UI
+```
+
+Invalid model output returns a typed failure or a bounded repair attempt through the same gate; it cannot reach execution unchecked. Provider failure or escalation re-enters the gate, rechecking policy and remaining budget. Uncertain action outcomes remain unknown until reconciliation; they are not reported as success or blindly retried. A multi-step task persists its verified step and returns to Cortex; final output is delivered only through an allowed channel.
+
+### 3. Recovery, cancellation and model change controls
+```mermaid
+flowchart TD
+    Restart["Worker restart or task resumption"]
+    Load["Load tenant-scoped durable checkpoint"]
+    Checks["Recheck permissions, cancellation, deadline and budget"]
+    Allowed{"Still permitted?"}
+    Stop["Persist cancelled, expired or blocked state"]
+    Effect{"Previous external effect uncertain?"}
+    Reconcile["Look up receipt using stable operation identity"]
+    Known{"Outcome established?"}
+    Wait["Persist unknown state for reconciliation or review"]
+    Resume["Resume only verified incomplete work"]
+    Record["Record result and cost without raw personal content"]
+    Restart --> Load --> Checks --> Allowed
+    Allowed -->|No| Stop
+    Allowed -->|Yes| Effect
+    Effect -->|Yes| Reconcile --> Known
+    Known -->|No| Wait
+    Known -->|Yes| Resume
+    Effect -->|No| Resume
+    Resume --> Record
+```
+
+Confirmed prior success skips replay; confirmed failure is retried only when safe and authorised. Cancellation prevents queued actions and reports effects already completed or still uncertain. Model upgrades and rollbacks require a qualified evaluation result and current provider eligibility; changing models never changes execution permissions.
+
+### Flow example: arrange coffee
+1. Authenticate the requester and resolve the contact within the correct account.
+2. Retrieve permitted calendar availability and confirmed preferences.
+3. Clarify material ambiguity; do not infer a recipient or external-action consent.
+4. Use deterministic slot checking; call a qualified model only where interpretation or drafting adds value.
+5. Show the proposed invitation if approval is required; persist waiting state.
+6. Recheck current authority and cancellation before sending through the existing connector.
+7. Verify the actual send/event receipt; save task state and cost; report the outcome.
+8. After interruption, reconcile before any resend. Do not create duplicate invitations.
+
+No diagram activates ingestion, notifications, suppliers or autonomous execution. Release HOLD remains.
