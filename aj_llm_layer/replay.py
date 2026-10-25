@@ -43,7 +43,9 @@ if expires - now > 90 then return -3 end
 local info = redis.call('INFO', 'server')
 local run_id = string.match(info, 'run_id:(%x+)')
 if not run_id then return -5 end
-local marker = redis.call('ZRANGEBYSCORE', KEYS[1], '+inf', '+inf', 'LIMIT', 0, 1)
+local marker = redis.call('ZRANGEBYSCORE', KEYS[1], '+inf', '+inf', 'LIMIT', 0, 2)
+-- More than one epoch marker means ambiguous registry history: never admit a credential.
+if #marker > 1 then return -5 end
 local epoch = nil
 if #marker == 1 then
   local at, owner = string.match(marker[1], '^epoch:(%d+):(%x+)$')
