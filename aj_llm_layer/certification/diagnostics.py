@@ -122,6 +122,8 @@ def snapshot() -> dict:
         "approved_providers": sorted(cfg.approved_providers),
     }
     data["replay"], replay_error = _replay_status()
+    # Retain the existing main-branch diagnostic contract for downstream consumers.
+    data["replay_failure"] = replay_error
     if data["replay"] not in ("ok", "local"):
         data["replay_url"] = _replay_url_shape()
         if replay_error:
