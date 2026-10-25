@@ -237,3 +237,16 @@ def test_old_marker_format_fails_closed(server):
     now=int(time.time())
     with pytest.raises(ReplayUnavailable):
         store.add_if_absent('any',now+30,now)
+
+
+def test_multiple_epoch_markers_fail_closed(server):
+    """Ambiguous registry history must not admit any credential."""
+    c = server['client']
+    store = RedisReplayStore(c, environment='test')
+    now = int(time.time())
+    c.zadd(store.key, {
+        'epoch:1:' + 'a' * 40: float('inf'),
+        'epoch:2:' + 'b' * 40: float('inf'),
+    })
+    with pytest.raises(ReplayUnavailable):
+        store.add_if_absent('ambiguous-epoch-nonce', now + 30, now)
