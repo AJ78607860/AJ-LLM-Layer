@@ -569,3 +569,15 @@ def test_healthy_replay_adds_no_url_fields(cert, monkeypatch):
                         lambda: replay.RedisReplayStore(_Client(), environment="staging"))
     snap = diagnostics.snapshot()
     assert snap["replay"] in ("ok", "local") and "replay_url" not in snap and "replay_error" not in snap
+
+
+def test_replay_diagnostics_preserve_existing_failure_field(cert, monkeypatch):
+    """Downstream consumers retain the main-branch replay_failure contract."""
+    from aj_llm_layer.certification import diagnostics
+    monkeypatch.setenv('AJ_LLM_LAYER_REPLAY_BACKEND', 'redis')
+    monkeypatch.setenv('AJ_LLM_LAYER_REPLAY_REDIS_URL', '')
+    snap = diagnostics.snapshot()
+    assert 'replay_failure' in snap
+    assert snap['replay'] == 'unavailable'
+    assert snap['ready'] is False
+    assert 'REPLAY_STORE_UNAVAILABLE' in snap['blockers']
