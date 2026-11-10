@@ -1,0 +1,484 @@
+{
+ "cases": [
+  {
+   "digest": "1761cd7e27217f08b10dc77c7ed608e3c01ad735fd8df690553cff248f26901b",
+   "id": "chat_simple",
+   "intent": {
+    "api_family": "responses",
+    "continuity": "none",
+    "cortex_task_class": "summarisation",
+    "data_class": "sensitive",
+    "incumbent": {
+     "model": "gpt-5.6",
+     "provider": "openai"
+    },
+    "input_tokens_bucket": 4096,
+    "modalities": [
+     "text"
+    ],
+    "output_tokens_bucket": 512,
+    "purpose": "core_conversation",
+    "schema_version": "aj.intent.v1",
+    "structured": false,
+    "synthetic": true,
+    "tier": "fast",
+    "tools": true
+   }
+  },
+  {
+   "digest": "01da8234e69aac7ecfcbdf2a8175c19064cf969f9cf9c7a24483f0c278610cf7",
+   "id": "chat_general_tools",
+   "intent": {
+    "api_family": "responses",
+    "continuity": "none",
+    "cortex_task_class": "general_reasoning",
+    "data_class": "sensitive",
+    "incumbent": {
+     "model": "gpt-5.6",
+     "provider": "openai"
+    },
+    "input_tokens_bucket": 16384,
+    "modalities": [
+     "text"
+    ],
+    "output_tokens_bucket": 1024,
+    "purpose": "core_conversation",
+    "schema_version": "aj.intent.v1",
+    "structured": false,
+    "synthetic": true,
+    "tier": "standard",
+    "tools": true
+   }
+  },
+  {
+   "digest": "5d365a3d0be761460be7931901e40710c8cac9f84198ee80a38c5ec8645b5481",
+   "id": "chat_chained",
+   "intent": {
+    "api_family": "responses",
+    "continuity": "response_chain",
+    "cortex_task_class": "general_reasoning",
+    "data_class": "sensitive",
+    "incumbent": {
+     "model": "gpt-5.6",
+     "provider": "openai"
+    },
+    "input_tokens_bucket": 2048,
+    "modalities": [
+     "text"
+    ],
+    "output_tokens_bucket": 512,
+    "purpose": "core_conversation",
+    "schema_version": "aj.intent.v1",
+    "structured": false,
+    "synthetic": true,
+    "tier": "standard",
+    "tools": true
+   }
+  },
+  {
+   "digest": "a4b95f9ff903f34ccac1cfa17c36c45dc09166dd471546937a8d1e818bcb3138",
+   "id": "chat_tool_followup",
+   "intent": {
+    "api_family": "responses",
+    "continuity": "tool_loop",
+    "cortex_task_class": "tool_orchestration",
+    "data_class": "sensitive",
+    "incumbent": {
+     "model": "gpt-5.6",
+     "provider": "openai"
+    },
+    "input_tokens_bucket": 16384,
+    "modalities": [
+     "text"
+    ],
+    "output_tokens_bucket": 1024,
+    "purpose": "core_conversation",
+    "schema_version": "aj.intent.v1",
+    "structured": true,
+    "synthetic": true,
+    "tier": "standard",
+    "tools": true
+   }
+  },
+  {
+   "digest": "1762e39190917e6e722bb41e6d5b50ec52cf05a6177eda47213430129100e27d",
+   "id": "chat_finance",
+   "intent": {
+    "api_family": "responses",
+    "continuity": "none",
+    "cortex_task_class": "financial_interpretation",
+    "data_class": "sensitive",
+    "incumbent": {
+     "model": "gpt-5.6",
+     "provider": "openai"
+    },
+    "input_tokens_bucket": 16384,
+    "modalities": [
+     "text"
+    ],
+    "output_tokens_bucket": 2048,
+    "purpose": "core_conversation",
+    "schema_version": "aj.intent.v1",
+    "structured": false,
+    "synthetic": true,
+    "tier": "strong",
+    "tools": true
+   }
+  },
+  {
+   "digest": "5b742311365a1a46fbd850e424eeacbf1a8c912d7990eb64c7d05517da06f850",
+   "id": "chat_payment",
+   "intent": {
+    "api_family": "responses",
+    "continuity": "none",
+    "cortex_task_class": "safety_critical",
+    "data_class": "sensitive",
+    "incumbent": {
+     "model": "gpt-5.6",
+     "provider": "openai"
+    },
+    "input_tokens_bucket": 16384,
+    "modalities": [
+     "text"
+    ],
+    "output_tokens_bucket": 1024,
+    "purpose": "core_conversation",
+    "schema_version": "aj.intent.v1",
+    "structured": true,
+    "synthetic": true,
+    "tier": "strong",
+    "tools": true
+   }
+  },
+  {
+   "digest": "3f4079a438b26bd93b5e52440f189823b70e33bf3065be1bf0c13538f66d091b",
+   "id": "chat_media",
+   "intent": {
+    "api_family": "responses",
+    "continuity": "none",
+    "cortex_task_class": "multimodal",
+    "data_class": "sensitive",
+    "incumbent": {
+     "model": "gpt-5.6",
+     "provider": "openai"
+    },
+    "input_tokens_bucket": 8192,
+    "modalities": [
+     "image",
+     "text"
+    ],
+    "output_tokens_bucket": 512,
+    "purpose": "core_conversation",
+    "schema_version": "aj.intent.v1",
+    "structured": false,
+    "synthetic": true,
+    "tier": "standard",
+    "tools": true
+   }
+  },
+  {
+   "digest": "a602faaffad857503c78d074c2dbfdf8becccd82af41ef9391f498e448e3ede5",
+   "id": "chat_claims_public",
+   "intent": {
+    "api_family": "responses",
+    "continuity": "none",
+    "cortex_task_class": "general_reasoning",
+    "data_class": "sensitive",
+    "incumbent": {
+     "model": "gpt-5.6",
+     "provider": "openai"
+    },
+    "input_tokens_bucket": 4096,
+    "modalities": [
+     "text"
+    ],
+    "output_tokens_bucket": 512,
+    "purpose": "core_conversation",
+    "schema_version": "aj.intent.v1",
+    "structured": false,
+    "synthetic": true,
+    "tier": "standard",
+    "tools": true
+   }
+  },
+  {
+   "digest": "b057af3f853af8f554a4602750d01ecab9a9259d0389bc9f8578972af57595f7",
+   "id": "cortex_analysis",
+   "intent": {
+    "api_family": "responses",
+    "continuity": "none",
+    "cortex_task_class": "none",
+    "data_class": "sensitive",
+    "incumbent": {
+     "model": "gpt-5.6-luna",
+     "provider": "openai"
+    },
+    "input_tokens_bucket": 1024,
+    "modalities": [
+     "text"
+    ],
+    "output_tokens_bucket": 256,
+    "purpose": "cortex_analysis",
+    "schema_version": "aj.intent.v1",
+    "structured": true,
+    "synthetic": true,
+    "tier": "standard",
+    "tools": false
+   }
+  },
+  {
+   "digest": "b2c19cbf85d7fa9e3b93c422243817264fb1b2ebe8a0f01c326b65a30c4d0a64",
+   "id": "email_triage",
+   "intent": {
+    "api_family": "chat_completions",
+    "continuity": "none",
+    "cortex_task_class": "none",
+    "data_class": "sensitive",
+    "incumbent": {
+     "model": "gpt-5.6",
+     "provider": "openai"
+    },
+    "input_tokens_bucket": 4096,
+    "modalities": [
+     "text"
+    ],
+    "output_tokens_bucket": 256,
+    "purpose": "email_classification",
+    "schema_version": "aj.intent.v1",
+    "structured": true,
+    "synthetic": true,
+    "tier": "standard",
+    "tools": false
+   }
+  },
+  {
+   "digest": "ec977112c16f5630fe9f333c4960b17e76d3d2e8b99e5d7065d1301e123e1ca5",
+   "id": "order_extract",
+   "intent": {
+    "api_family": "chat_completions",
+    "continuity": "none",
+    "cortex_task_class": "none",
+    "data_class": "sensitive",
+    "incumbent": {
+     "model": "gpt-5.6",
+     "provider": "openai"
+    },
+    "input_tokens_bucket": 4096,
+    "modalities": [
+     "text"
+    ],
+    "output_tokens_bucket": 512,
+    "purpose": "order_extraction",
+    "schema_version": "aj.intent.v1",
+    "structured": true,
+    "synthetic": true,
+    "tier": "standard",
+    "tools": false
+   }
+  },
+  {
+   "digest": "5876ed38c6ce3238b6c51aea6ecdec2eff773ba01ab70b4f91d2be18f74a9be3",
+   "id": "memory_extract",
+   "intent": {
+    "api_family": "chat_completions",
+    "continuity": "none",
+    "cortex_task_class": "none",
+    "data_class": "sensitive",
+    "incumbent": {
+     "model": "gpt-5.4",
+     "provider": "openai"
+    },
+    "input_tokens_bucket": 2048,
+    "modalities": [
+     "text"
+    ],
+    "output_tokens_bucket": 256,
+    "purpose": "memory_extraction",
+    "schema_version": "aj.intent.v1",
+    "structured": true,
+    "synthetic": true,
+    "tier": "standard",
+    "tools": false
+   }
+  },
+  {
+   "digest": "6ef837bab6877cac5cae36aba3c3a0a0c82c56d6dedb7d390418d857318bb67f",
+   "id": "translate",
+   "intent": {
+    "api_family": "chat_completions",
+    "continuity": "none",
+    "cortex_task_class": "none",
+    "data_class": "sensitive",
+    "incumbent": {
+     "model": "gpt-5.6",
+     "provider": "openai"
+    },
+    "input_tokens_bucket": 512,
+    "modalities": [
+     "text"
+    ],
+    "output_tokens_bucket": 512,
+    "purpose": "network_chat_translate",
+    "schema_version": "aj.intent.v1",
+    "structured": false,
+    "synthetic": true,
+    "tier": "standard",
+    "tools": false
+   }
+  },
+  {
+   "digest": "dc2a4feb455c8aed1f46db254e6cbdca81856c004aebec6ba0af38e265a19d22",
+   "id": "vision",
+   "intent": {
+    "api_family": "responses",
+    "continuity": "none",
+    "cortex_task_class": "none",
+    "data_class": "sensitive",
+    "incumbent": {
+     "model": "gpt-5.6",
+     "provider": "openai"
+    },
+    "input_tokens_bucket": 2048,
+    "modalities": [
+     "image",
+     "text"
+    ],
+    "output_tokens_bucket": 512,
+    "purpose": "media_analysis",
+    "schema_version": "aj.intent.v1",
+    "structured": false,
+    "synthetic": true,
+    "tier": "standard",
+    "tools": false
+   }
+  },
+  {
+   "digest": "65992bc530e3d0b32901a43b5380271d75e6e0eb38b1cdc9b23f74de6a9ad3fa",
+   "id": "web_search",
+   "intent": {
+    "api_family": "responses",
+    "continuity": "none",
+    "cortex_task_class": "none",
+    "data_class": "sensitive",
+    "incumbent": {
+     "model": "gpt-5.6",
+     "provider": "openai"
+    },
+    "input_tokens_bucket": 4096,
+    "modalities": [
+     "text"
+    ],
+    "output_tokens_bucket": 1024,
+    "purpose": "hosted_web_search",
+    "schema_version": "aj.intent.v1",
+    "structured": false,
+    "synthetic": true,
+    "tier": "standard",
+    "tools": true
+   }
+  },
+  {
+   "digest": "af8ee948630d25001ecf911824142a7fc3511be9badb0c6f354d5f49efee19ff",
+   "id": "browser",
+   "intent": {
+    "api_family": "chat_completions",
+    "continuity": "tool_loop",
+    "cortex_task_class": "none",
+    "data_class": "sensitive",
+    "incumbent": {
+     "model": "gpt-5.6",
+     "provider": "openai"
+    },
+    "input_tokens_bucket": 32768,
+    "modalities": [
+     "text"
+    ],
+    "output_tokens_bucket": 512,
+    "purpose": "browser_agent",
+    "schema_version": "aj.intent.v1",
+    "structured": false,
+    "synthetic": true,
+    "tier": "standard",
+    "tools": true
+   }
+  },
+  {
+   "digest": "489899d49eda63e226c4ab5438a13d49b53803fe386d3057cc896e0a4629e167",
+   "id": "voice_note",
+   "intent": {
+    "api_family": "transcription",
+    "continuity": "none",
+    "cortex_task_class": "none",
+    "data_class": "sensitive",
+    "incumbent": {
+     "model": "gpt-4o-mini-transcribe",
+     "provider": "openai"
+    },
+    "input_tokens_bucket": 0,
+    "modalities": [
+     "audio"
+    ],
+    "output_tokens_bucket": 256,
+    "purpose": "voice_transcription",
+    "schema_version": "aj.intent.v1",
+    "structured": false,
+    "synthetic": true,
+    "tier": "standard",
+    "tools": false
+   }
+  },
+  {
+   "digest": "eda7e501acf6ea84dba2099e6a3f30f07ad115ee888c8e486168dec6435b1916",
+   "id": "embed",
+   "intent": {
+    "api_family": "embedding",
+    "continuity": "none",
+    "cortex_task_class": "none",
+    "data_class": "sensitive",
+    "incumbent": {
+     "model": "text-embedding-3-small",
+     "provider": "openai"
+    },
+    "input_tokens_bucket": 512,
+    "modalities": [
+     "text"
+    ],
+    "output_tokens_bucket": 0,
+    "purpose": "pi_embedding",
+    "schema_version": "aj.intent.v1",
+    "structured": false,
+    "synthetic": true,
+    "tier": "standard",
+    "tools": false
+   }
+  },
+  {
+   "digest": "3c44143e5e547c9d28244d33ae30007d7944cdb08b0b8127c3ff024fdcdf545f",
+   "id": "realtime",
+   "intent": {
+    "api_family": "realtime",
+    "continuity": "tool_loop",
+    "cortex_task_class": "none",
+    "data_class": "sensitive",
+    "incumbent": {
+     "model": "gpt-realtime",
+     "provider": "openai"
+    },
+    "input_tokens_bucket": 0,
+    "modalities": [
+     "audio"
+    ],
+    "output_tokens_bucket": 0,
+    "purpose": "voice_realtime",
+    "schema_version": "aj.intent.v1",
+    "structured": false,
+    "synthetic": true,
+    "tier": "standard",
+    "tools": true
+   }
+  }
+ ],
+ "note": "Synthetic metadata only. Shared with AJ-LLM-Layer tests/fixtures/aj_intents.v1.json.",
+ "schema_version": "aj.intent.v1",
+ "synthetic": true
+}
