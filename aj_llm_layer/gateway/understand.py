@@ -124,6 +124,19 @@ _HIGH_RISK = re.compile(r"\b(?:" + "|".join([
     r"discriminat\w+", r"visa", r"immigration", r"deport\w*", r"asylum", r"police", r"arrest\w*",
     r"divorce", r"custody", r"will and testament", r"power of attorney",
 ]) + r")\b", re.I)
+# Irreversible actions: deleting or destroying things, and moving or committing money. A
+# wrong answer here can't be undone, so these force the smart tier too (review of #23, 25 Nov).
+_IRREVERSIBLE = re.compile(r"\b(?:" + "|".join([
+    r"delet\w*", r"eras\w*", r"wip(?:e|es|ed|ing)", r"purg\w*", r"destroy\w*", r"shred\w*",
+    r"drop (?:the |a |my |all )?(?:\w+ )?(?:table|database|db|collection|schema)s?", r"truncate",
+    r"rm -rf", r"format (?:the |my )?(?:disk|drive|phone|laptop)", r"factory reset", r"overwrit\w*",
+    r"cancel\w*", r"terminat\w*", r"revok\w*", r"close (?:my |the |our )?(?:\w+ )?accounts?",
+    r"unsubscribe", r"deactivat\w*",
+    r"wir(?:e|es|ed|ing)", r"transfer\w*", r"send(?:ing)? (?:money|funds|a payment|payment|cash|£|\$|€)",
+    r"pay(?:s|ing|ment|ments)?", r"refund\w*", r"withdraw\w*", r"sell(?:ing)?", r"buy(?:ing)? (?:shares|stocks?|crypto\w*|bitcoin)",
+    r"trad(?:e|es|ing)(?!-?\s?offs?)", r"crypto\w*", r"bitcoin", r"bank (?:details|account|transfer)", r"password",
+]) + r")\b", re.I)
+
 _PRECISION = _w(r"exact(?:ly)?", r"precise(?:ly)?", r"how much", r"how many", r"percentage", r"figure",
                 r"deadline", r"dosage", r"accurate(?:ly)?")
 _SIMPLE = re.compile(r"^\W*(?:hi|hello|hey|thanks?|thank you|ok(?:ay)?|yes|no|sure|cheers|good (?:morning|"
@@ -175,7 +188,10 @@ def understand(messages, system: str | None = None, *, json_mode: bool = False) 
         family = ranked[0][0]
         confidence = round(min(0.95, 0.5 + (top - second) / (2 * top)), 2)
 
-    risk = "high" if _HIGH_RISK.search(text) or family == "financial_analysis" else "low"
+    irreversible = bool(_IRREVERSIBLE.search(text))
+    if irreversible:
+        signals.append("risk:irreversible_action")
+    risk = "high" if irreversible or _HIGH_RISK.search(text) or family == "financial_analysis" else "low"
     if risk == "high" and family == "conversation":
         family = "reasoning"  # health / legal questions need careful reasoning, not chit-chat
         signals.append("family:high_risk_reasoning")

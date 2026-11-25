@@ -20,7 +20,8 @@ def u(text, **kw):
 def test_labelled_questions_accuracy():
     fam = sum(u(c["question"]).task_family == c["task_family"] for c in CASES)
     tier = sum(u(c["question"]).tier == c["tier"] for c in CASES)
-    # Measured on 35 hand-labelled questions: 34/35 family, 35/35 tier. Guard against regressions.
+    # Regression guard, NOT independent accuracy evidence: the questions and labels were written by the
+    # rules' author, and 5 tier labels were revised on 25 Nov after review. Currently 34/35 family, 35/35 tier.
     assert fam / len(CASES) >= 0.9, fam
     assert tier / len(CASES) >= 0.95, tier
 
@@ -170,3 +171,34 @@ def test_best_effort_answer_reports_total_cost():
     out = gw.complete(CompletionRequest(messages=(Message(role="user", content="hi"),),
                                         data_class="non_personal", tier="fast"))
     assert out.cost_usd == pytest.approx(sum(gw.catalog.get(m).cost(10, 5) for m in every))
+
+
+# Review of #23 recheck (Instinct, 25 Nov): irreversible actions were not marked high-risk.
+IRREVERSIBLE = [
+    "Delete all my files and wire money",
+    "Wire £5,000 to this account now",
+    "Transfer all my savings to my brother",
+    "Send a payment of $2000 to John",
+    "Cancel my subscription and close my account",
+    "Drop the production database",
+    "Run rm -rf / on the server",
+    "Delete every email in my inbox",
+    "Pay this invoice",
+    "Sell all my shares",
+]
+
+
+@pytest.mark.parametrize("question", IRREVERSIBLE)
+def test_irreversible_actions_are_high_risk_and_smart(question):
+    r = u(question)
+    assert r.risk == "high" and r.tier == "smart" and "risk:irreversible_action" in r.signals
+
+
+
+@pytest.mark.parametrize("question", [
+    "Calculate the compound interest on £5000 at 4% over 10 years",   # an amount alone is not an action
+    "Evaluate the trade-offs of renting versus buying a car",          # trade-off is not trading
+    "Extract the totals from this receipt: £12.50 and £3.20",
+])
+def test_amounts_and_trade_offs_alone_are_not_irreversible(question):
+    assert "risk:irreversible_action" not in u(question).signals
