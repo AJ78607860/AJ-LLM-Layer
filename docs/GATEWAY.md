@@ -1,4 +1,4 @@
-# LLM Layer execution gateway (v0.3)
+# LLM Layer execution gateway (v0.4)
 
 One place every AJ app sends its model calls: AJ Assistant, Calibre and anything built later.
 Apps never hold provider keys or vendor SDKs. They call the Layer, and the Layer:
@@ -8,6 +8,22 @@ Apps never hold provider keys or vendor SDKs. They call the Layer, and the Layer
 3. **learns which model is best** for each kind of task from graded answers.
 
 Logs and stored evidence contain metadata only. Prompts, replies and keys are never kept.
+
+## Reading the question (no model call)
+
+Apps can leave `task_family` and `tier` as `"auto"`, which is the default. The Layer then reads the question itself (`understand.py`), locally and in microseconds. It costs no tokens and sends nothing anywhere, in line with the Layer's zero-router-LLM rule.
+
+- **Task family** comes from code, maths, translation, writing, extraction, JSON, research, planning, travel, finance and document cues. Ambiguous questions become `conversation`.
+- **Tier:**
+  - `smart` for high-risk questions (health, legal, finance), proofs, deep or multi-step requests, large code or very long inputs;
+  - `fast` for short, simple chat, translation, extraction and writing;
+  - `standard` otherwise.
+- **Accuracy:** on 35 hand-labelled questions (`tests/fixtures/understand_cases.v1.json`) it got 34/35 families and 35/35 tiers right.
+- **What the reply shows:** the family and tier used, and `understanding` (whether each came from the app or the Layer, the confidence, and the names of the rules that fired; never any text).
+- **App labels win.** AJ, for example, can keep sending what its own analyser decided.
+- **Escalation:** if a model's answer fails an objective check (it's empty, or JSON was asked for and the answer isn't valid JSON), the Layer grades it wrong and tries a stronger tier. If nothing passes, it returns the best answer it got.
+
+The vocabulary follows AJ's existing analysers (`core/router/analysis.py` and `universal_ai_gateway/classifier.py`), generalised so every app gets the same behaviour.
 
 ## How a model is chosen (the "supermarket")
 

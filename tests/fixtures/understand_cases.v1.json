@@ -1,0 +1,177 @@
+[
+ {
+  "question": "hi there",
+  "task_family": "conversation",
+  "tier": "fast"
+ },
+ {
+  "question": "thanks!",
+  "task_family": "conversation",
+  "tier": "fast"
+ },
+ {
+  "question": "How are you today?",
+  "task_family": "conversation",
+  "tier": "fast"
+ },
+ {
+  "question": "Translate 'where is the station' into French",
+  "task_family": "translation",
+  "tier": "fast"
+ },
+ {
+  "question": "How do you say thank you in Japanese?",
+  "task_family": "translation",
+  "tier": "fast"
+ },
+ {
+  "question": "Write a short email to my landlord asking to fix the boiler",
+  "task_family": "writing",
+  "tier": "fast"
+ },
+ {
+  "question": "Summarise this: The meeting covered budgets and hiring plans for Q3.",
+  "task_family": "writing",
+  "tier": "fast"
+ },
+ {
+  "question": "Proofread this paragraph: their going to the shop tomorow",
+  "task_family": "writing",
+  "tier": "fast"
+ },
+ {
+  "question": "Extract all the dates and amounts from this invoice text: Paid \u00a340 on 3 May, \u00a360 on 9 June",
+  "task_family": "extraction",
+  "tier": "fast"
+ },
+ {
+  "question": "Classify the sentiment of this review as positive or negative: great product",
+  "task_family": "structured_data",
+  "tier": "fast"
+ },
+ {
+  "question": "Return a JSON object with name and age from: Sam is 31",
+  "task_family": "structured_data",
+  "tier": "fast"
+ },
+ {
+  "question": "Why does my Python function raise a KeyError?\n```python\ndef f(d):\n    return d['x']\n```",
+  "task_family": "coding",
+  "tier": "standard"
+ },
+ {
+  "question": "Write a JavaScript function that debounces another function",
+  "task_family": "coding",
+  "tier": "standard"
+ },
+ {
+  "question": "Refactor this service for concurrency and explain the race conditions\n```go\nfunc main(){}\n```",
+  "task_family": "coding",
+  "tier": "smart"
+ },
+ {
+  "question": "Design the architecture for a multi-tenant SaaS billing system, covering trade-offs and edge cases",
+  "task_family": "coding",
+  "tier": "smart"
+ },
+ {
+  "question": "What is 15% of 240?",
+  "task_family": "mathematics",
+  "tier": "standard"
+ },
+ {
+  "question": "Prove that the square root of 2 is irrational",
+  "task_family": "mathematics",
+  "tier": "smart"
+ },
+ {
+  "question": "Calculate the compound interest on \u00a35000 at 4% over 10 years",
+  "task_family": "mathematics",
+  "tier": "standard"
+ },
+ {
+  "question": "Plan a 3 day trip to Lisbon with hotel and things to do",
+  "task_family": "travel_planning",
+  "tier": "standard"
+ },
+ {
+  "question": "Find me flights to Rome next month and an itinerary",
+  "task_family": "travel_planning",
+  "tier": "standard"
+ },
+ {
+  "question": "Compare the pros and cons of electric vs hybrid cars",
+  "task_family": "research",
+  "tier": "standard"
+ },
+ {
+  "question": "What are the latest developments in battery research? Give sources",
+  "task_family": "research",
+  "tier": "standard"
+ },
+ {
+  "question": "Explain why the sky is blue",
+  "task_family": "reasoning",
+  "tier": "standard"
+ },
+ {
+  "question": "Should I take the job offer in London or stay in Manchester? Evaluate the trade-offs",
+  "task_family": "reasoning",
+  "tier": "standard"
+ },
+ {
+  "question": "What are the side effects and correct dosage of ibuprofen for an adult?",
+  "task_family": "reasoning",
+  "tier": "smart"
+ },
+ {
+  "question": "Is this clause in my tenancy contract legally enforceable? Section 4 says...",
+  "task_family": "document_understanding",
+  "tier": "smart"
+ },
+ {
+  "question": "Analyse my investment portfolio allocation and suggest rebalancing",
+  "task_family": "financial_analysis",
+  "tier": "smart"
+ },
+ {
+  "question": "Make me a weekly schedule to prioritise study, gym and work",
+  "task_family": "planning",
+  "tier": "standard"
+ },
+ {
+  "question": "Create a roadmap with steps to launch a mobile app",
+  "task_family": "planning",
+  "tier": "standard"
+ },
+ {
+  "question": "Summarise the attached report in 5 bullet points",
+  "task_family": "document_understanding",
+  "tier": "standard"
+ },
+ {
+  "question": "Write a poem about autumn",
+  "task_family": "writing",
+  "tier": "fast"
+ },
+ {
+  "question": "Tell me a joke",
+  "task_family": "conversation",
+  "tier": "fast"
+ },
+ {
+  "question": "What's the capital of Australia?",
+  "task_family": "conversation",
+  "tier": "fast"
+ },
+ {
+  "question": "Who wrote Pride and Prejudice?",
+  "task_family": "conversation",
+  "tier": "fast"
+ },
+ {
+  "question": "Give me a detailed, step by step explanation of how TCP handshakes work, in depth",
+  "task_family": "reasoning",
+  "tier": "smart"
+ }
+]

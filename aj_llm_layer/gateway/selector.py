@@ -120,6 +120,8 @@ class Selector:
 
     # -- main ----------------------------------------------------------------------
     def shortlist(self, request: CompletionRequest) -> tuple[list[Candidate], list[Attempt], dict]:
+        from .understand import resolve
+        request, _ = resolve(request)
         input_tokens = estimated_input_tokens(request)
         skipped: list[Attempt] = []
         wanted = {p.lower() for p in request.providers} if request.providers else None
