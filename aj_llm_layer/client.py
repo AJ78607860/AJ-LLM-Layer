@@ -47,6 +47,14 @@ class LLMClient:
         raise GatewayError(kind, attempts,
                            payload.get("message") or f"LLM Layer returned HTTP {response.status_code}")
 
+    def feedback(self, call_id: str, correct: bool) -> dict:
+        """Tell the Layer whether an answer was right; this is how it learns which model is best."""
+        response = self._client.post(f"{self._url}/v1/feedback", headers=self._headers,
+                                     json={"call_id": call_id, "correct": correct},
+                                     timeout=self._timeout)
+        response.raise_for_status()
+        return response.json()
+
     def chat(self, prompt: str, *, system: str | None = None, history: list[dict] | None = None,
              **options) -> CompletionResult:
         messages = [Message(**m) for m in (history or [])]

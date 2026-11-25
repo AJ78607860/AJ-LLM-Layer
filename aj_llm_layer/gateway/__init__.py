@@ -12,9 +12,12 @@ Over HTTP from any app: see aj_llm_layer.client.LLMClient.
 from .config import GatewayConfig, ProviderConfig, load_config
 from .errors import ErrorKind, GatewayError, ProviderError
 from .health import MemoryStore, ProviderHealth, RedisStore
+from .catalog import Catalog, CatalogModel, load_catalog
+from .evidence import EvidenceLedger
 from .router import Gateway
+from .selector import Selector, SelectorSettings
 from .types import Attempt, CompletionRequest, CompletionResult, Message, Usage
 
-__all__ = ["Attempt", "MemoryStore", "ProviderHealth", "RedisStore", "CompletionRequest", "CompletionResult", "ErrorKind",
+__all__ = ["Catalog", "CatalogModel", "EvidenceLedger", "Selector", "SelectorSettings", "load_catalog", "Attempt", "MemoryStore", "ProviderHealth", "RedisStore", "CompletionRequest", "CompletionResult", "ErrorKind",
            "Gateway", "GatewayConfig", "GatewayError", "Message", "ProviderConfig",
            "ProviderError", "Usage", "load_config"]

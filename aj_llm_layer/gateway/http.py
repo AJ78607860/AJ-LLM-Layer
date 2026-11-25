@@ -13,7 +13,7 @@ import threading
 
 from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from starlette.concurrency import run_in_threadpool
 
 from .errors import ErrorKind, GatewayError
@@ -105,6 +105,33 @@ async def complete(request: Request, authorization: str | None = Header(default=
             "error": exc.kind.value, "message": str(exc),
             "attempts": [a.model_dump() for a in exc.attempts]})
     return result.model_dump()
+
+
+class Feedback(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    call_id: str = Field(pattern=r"^call_[a-f0-9]{24}$")
+    correct: bool = Field(strict=True)
+
+
+@router.post("/v1/feedback")
+def feedback(body: Feedback, authorization: str | None = Header(default=None)):
+    """Grade an earlier answer (right / wrong). This is what teaches the Layer which model is best."""
+    app = _authenticate(authorization)
+    try:
+        return get_gateway().feedback(body.call_id, body.correct, app=app)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="unknown or expired call") from None
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="call belongs to another app") from None
+    except ValueError:
+        raise HTTPException(status_code=409, detail="call already graded") from None
+
+
+@router.get("/v1/models")
+def models(task_family: str | None = None, authorization: str | None = Header(default=None)):
+    """The leaderboard: every catalogued model with price and its track record per task family."""
+    _authenticate(authorization)
+    return get_gateway().leaderboard(task_family)
 
 
 @router.post("/v1/admin/providers/{provider}/reset")

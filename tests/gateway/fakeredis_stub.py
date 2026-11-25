@@ -22,3 +22,27 @@ class FakeRedis:
 
     def expire(self, key, seconds):
         return True
+
+    def hincrbyfloat(self, key, field, amount):
+        h = self.data.setdefault(key, {})
+        h[field] = float(h.get(field, 0.0)) + float(amount)
+        return h[field]
+
+    def hgetall(self, key):
+        return {k.encode(): str(v).encode() for k, v in self.data.get(key, {}).items()}
+
+    def sadd(self, key, member):
+        self.data.setdefault(key, set()).add(member)
+
+    def smembers(self, key):
+        return {m.encode() for m in self.data.get(key, set())}
+
+    def lpush(self, key, value):
+        self.data.setdefault(key, []).insert(0, value)
+
+    def ltrim(self, key, start, stop):
+        self.data[key] = self.data.get(key, [])[start:stop + 1]
+
+    def lrange(self, key, start, stop):
+        items = self.data.get(key, [])
+        return [str(v).encode() for v in (items[start:] if stop == -1 else items[start:stop + 1])]

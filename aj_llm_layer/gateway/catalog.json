@@ -1,0 +1,45 @@
+{
+  "version": "catalog-2026-11-25",
+  "models": [
+    {
+      "id": "claude-haiku-5-5", "provider": "anthropic", "tier": "fast",
+      "input": 0.10, "cached": 0.01, "output": 0.50,
+      "long_context": {"above_input_tokens": 100000, "input": 0.50, "cached": 0.05, "output": 2.50},
+      "context_limit": 200000, "output_limit": 64000,
+      "price_source": "https://platform.claude.com/docs/en/about-claude/pricing", "price_checked": "2026-11-25", "price_verified": true
+    },
+    {
+      "id": "claude-sonnet-5-5", "provider": "anthropic", "tier": "standard",
+      "input": 2.00, "cached": 0.10, "output": 10.00,
+      "context_limit": 1000000, "output_limit": 64000,
+      "price_source": "https://platform.claude.com/docs/en/about-claude/pricing", "price_checked": "2026-11-25", "price_verified": true
+    },
+    {
+      "id": "claude-opus-5-5", "provider": "anthropic", "tier": "smart",
+      "input": 4.00, "cached": 0.20, "output": 20.00,
+      "context_limit": 1000000, "output_limit": 64000,
+      "price_source": "https://platform.claude.com/docs/en/about-claude/pricing", "price_checked": "2026-11-25", "price_verified": true
+    },
+    {
+      "id": "gpt-6.1-terra", "provider": "openai", "tier": "fast",
+      "input": 0.50, "cached": 0.025, "output": 2.50,
+      "context_limit": 200000, "output_limit": 32000,
+      "price_source": "https://developers.openai.com/docs/pricing", "price_checked": "2026-11-25", "price_verified": false,
+      "note": "Model ID and standard-tier price need owner confirmation (roadmap D4)."
+    },
+    {
+      "id": "gpt-6.2-sol", "provider": "openai", "tier": "standard",
+      "input": 2.00, "cached": 0.10, "output": 10.00,
+      "context_limit": 400000, "output_limit": 64000,
+      "price_source": "https://developers.openai.com/docs/pricing", "price_checked": "2026-11-25", "price_verified": false,
+      "note": "Model ID needs owner confirmation (roadmap D4)."
+    },
+    {
+      "id": "gpt-6.2-astra", "provider": "openai", "tier": "smart",
+      "input": 8.00, "cached": 0.40, "output": 40.00,
+      "context_limit": 400000, "output_limit": 64000,
+      "price_source": "https://developers.openai.com/docs/pricing", "price_checked": "2026-11-25", "price_verified": false,
+      "note": "Model ID needs owner confirmation (roadmap D4)."
+    }
+  ]
+}

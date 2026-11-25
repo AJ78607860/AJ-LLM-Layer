@@ -22,6 +22,8 @@ def classify(status: int, payload: dict) -> ProviderError:
         return ProviderError(ErrorKind.UNAVAILABLE, NAME, "overloaded", status)
     if etype == "rate_limit_error":
         return ProviderError(ErrorKind.RATE_LIMIT, NAME, "rate limited", status)
+    if etype == "not_found_error" or status == 404:
+        return ProviderError(ErrorKind.NOT_CONFIGURED, NAME, "model not found", status)
     if etype in ("authentication_error", "permission_error"):
         return ProviderError(ErrorKind.AUTH, NAME, "authentication failed", status)
     return generic_status(NAME, status)

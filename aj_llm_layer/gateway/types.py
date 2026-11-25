@@ -32,6 +32,10 @@ class CompletionRequest(_Strict):
     messages: tuple[Message, ...] = Field(min_length=1, max_length=MAX_MESSAGES)
     system: str | None = Field(default=None, max_length=MAX_CHARS)
     purpose: str = Field(default="general", pattern=r"^[a-z0-9_]{1,64}$")
+    # Kind of work, from the routing taxonomy (aj_llm_layer.routing.tasks.FAMILIES).
+    # Evidence of which model is best is kept per family.
+    task_family: str = "conversation"
+    strategy: Literal["cost_efficient", "quality_first", "balanced", "latency_sensitive"] | None = None
     tier: Tier = "standard"
     data_class: DataClass = "personal"  # fail safe: assume personal unless the app says otherwise
     max_tokens: int = Field(default=1024, ge=1, le=64_000)
@@ -46,6 +50,14 @@ class CompletionRequest(_Strict):
         if self.model is not None and (not self.providers or len(self.providers) != 1):
             raise ValueError("an explicit model needs exactly one provider in `providers`")
         return self
+
+    @field_validator("task_family")
+    @classmethod
+    def _family(cls, family):
+        from ..routing.tasks import FAMILIES
+        if family not in FAMILIES:
+            raise ValueError(f"unknown task_family; use one of: {', '.join(sorted(FAMILIES))}")
+        return family
 
     @field_validator("messages")
     @classmethod
@@ -82,3 +94,5 @@ class CompletionResult(_Strict):
     latency_ms: int
     fallback_used: bool
     attempts: tuple[Attempt, ...]
+    call_id: str = ""        # send to POST /v1/feedback to grade this answer
+    selection: str = ""      # why this model: proven | untested | explore | stronger_tier | ...

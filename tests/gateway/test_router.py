@@ -8,7 +8,7 @@ from aj_llm_layer.gateway import (CompletionRequest, ErrorKind, Gateway, Gateway
 from aj_llm_layer.gateway.providers import RawCompletion
 from aj_llm_layer.gateway.types import Usage
 
-BASE_ENV = {"OPENAI_API_KEY": "sk-o", "ANTHROPIC_API_KEY": "sk-a",
+BASE_ENV = {"OPENAI_API_KEY": "sk-o", "ANTHROPIC_API_KEY": "sk-a", "AJ_LLM_SELECTION": "ordered",
             "AJ_LLM_OPENAI_MODEL_STANDARD": "gpt-test", "AJ_LLM_OPENAI_MODEL_FAST": "gpt-mini"}
 
 
@@ -116,13 +116,12 @@ def test_all_fail_raises_with_trail():
     assert [a.provider for a in exc.value.attempts] == ["openai", "anthropic"]
 
 
-def test_missing_openai_model_skips_to_anthropic():
-    env = {"OPENAI_API_KEY": "k", "ANTHROPIC_API_KEY": "k"}
+def test_ordered_mode_uses_catalogue_model_when_no_env_override():
+    env = {"OPENAI_API_KEY": "k", "ANTHROPIC_API_KEY": "k", "AJ_LLM_SELECTION": "ordered"}
     fakes = {"openai": Fake("openai", []), "anthropic": Fake("anthropic", [])}
     gw = Gateway(load_config(env), providers=fakes, retry_delay=0)
     out = gw.complete(req(data_class="non_personal", tier="smart"))
-    assert out.provider == "anthropic" and out.model == "claude-opus-5-5"
-    assert out.attempts[0].outcome == "skipped:no_model_for_tier"
+    assert out.provider == "openai" and out.model == "gpt-6.2-astra" and out.selection == "ordered"
 
 
 def test_no_keys_is_not_configured():
@@ -159,7 +158,7 @@ def test_logs_are_content_free(caplog):
         gw.complete(req(messages=(Message(role="user", content="TOP-SECRET-PROMPT"),),
                         system="SECRET-SYSTEM", data_class="non_personal"), app="calibre")
     text = caplog.text
-    assert "app=calibre" in text and "provider=anthropic" in text and "openai:quota" in text
+    assert "app=calibre" in text and "provider=anthropic" in text and "openai/gpt-test:quota" in text
     assert "TOP-SECRET" not in text and "SECRET-SYSTEM" not in text and "sk-" not in text
 
 

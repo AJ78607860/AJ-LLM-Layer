@@ -20,6 +20,8 @@ def classify(status: int, payload: dict) -> ProviderError:
         return ProviderError(ErrorKind.QUOTA, NAME, "out of credits", status)
     if code == "content_policy_violation" or etype == "content_policy_violation":
         return ProviderError(ErrorKind.REFUSED, NAME, "content policy", status)
+    if code == "model_not_found" or status == 404:
+        return ProviderError(ErrorKind.NOT_CONFIGURED, NAME, "model not found", status)
     if code == "context_length_exceeded":
         return ProviderError(ErrorKind.BAD_REQUEST, NAME, "context too long", status)
     return generic_status(NAME, status)

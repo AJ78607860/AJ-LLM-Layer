@@ -6,8 +6,11 @@ unavailable (fail closed) rather than guessing.
 Environment variables
 ---------------------
 OPENAI_API_KEY / ANTHROPIC_API_KEY      provider keys (or AJ_LLM_OPENAI_API_KEY / AJ_LLM_ANTHROPIC_API_KEY)
-AJ_LLM_PROVIDER_ORDER                   preference order, default "openai,anthropic"
-AJ_LLM_<PROVIDER>_MODEL_<TIER>          model per tier (fast|standard|smart)
+AJ_LLM_SELECTION                        "routed" (default: evidence + price decide, no provider
+                                        preferred) or "ordered" (fixed AJ_LLM_PROVIDER_ORDER)
+AJ_LLM_PROVIDER_ORDER                   providers to load (and their order in "ordered" mode)
+AJ_LLM_<PROVIDER>_MODEL_<TIER>          "ordered" mode only: model per tier (default: cheapest
+                                        catalogued model of that provider in the tier)
 AJ_LLM_PERSONAL_DATA_PROVIDERS          providers approved for personal data, default "openai"
                                         (ADR-025). Add "anthropic" only after owner approval + DPA.
 AJ_LLM_PRICES                           optional JSON {"model-id": [usd_in_per_million, usd_out_per_million]}
@@ -24,13 +27,9 @@ from dataclasses import dataclass, field
 TIERS = ("fast", "standard", "smart")
 KNOWN_PROVIDERS = ("openai", "anthropic")
 
-# Anthropic's current public model IDs. OpenAI has no default on purpose: AJ must
-# state which model it runs today (roadmap decision D4) instead of us guessing.
-DEFAULT_MODELS: dict[str, dict[str, str]] = {
-    "openai": {},
-    "anthropic": {"fast": "claude-haiku-5-5", "standard": "claude-sonnet-5-5",
-                  "smart": "claude-opus-5-5"},
-}
+# Per-tier models now come from the catalogue (catalog.json); env overrides apply
+# to "ordered" mode only.
+DEFAULT_MODELS: dict[str, dict[str, str]] = {"openai": {}, "anthropic": {}}
 
 
 @dataclass(frozen=True)
@@ -47,11 +46,12 @@ class GatewayConfig:
     providers: tuple[ProviderConfig, ...]
     prices: dict[str, tuple[float, float]]
     spend_limits: dict[str, float] = field(default_factory=dict)
+    selection: str = "routed"
 
     def status(self) -> dict:
         """Content- and secret-free readiness summary."""
         return {p.name: {"key_configured": bool(p.api_key),
-                         "models": dict(p.models),
+                         "ordered_mode_models": dict(p.models),
                          "personal_data_approved": p.personal_data_approved}
                 for p in self.providers}
 
@@ -81,7 +81,9 @@ def load_config(env: dict[str, str] | None = None) -> GatewayConfig:
             personal_data_approved=name in personal,
             base_url=(env.get(f"AJ_LLM_{upper}_BASE_URL") or "").strip() or None))
     return GatewayConfig(providers=tuple(providers), prices=_prices(env.get("AJ_LLM_PRICES")),
-                         spend_limits=_limits(env.get("AJ_LLM_SPEND_LIMITS")))
+                         spend_limits=_limits(env.get("AJ_LLM_SPEND_LIMITS")),
+                         selection="ordered" if (env.get("AJ_LLM_SELECTION") or "").strip().lower()
+                         == "ordered" else "routed")
 
 
 def _limits(raw: str | None) -> dict[str, float]:

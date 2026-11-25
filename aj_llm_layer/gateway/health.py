@@ -47,12 +47,23 @@ class Store(Protocol):
     def clear_bench(self, provider: str) -> None: ...
     def add_spend(self, provider: str, month: str, usd: float) -> float: ...
     def get_spend(self, provider: str, month: str) -> float: ...
+    # generic primitives used by the evidence ledger
+    def hincr(self, key: str, field: str, amount: float) -> None: ...
+    def hgetall(self, key: str) -> dict[str, float]: ...
+    def push_capped(self, key: str, value: float, cap: int) -> None: ...
+    def get_list(self, key: str) -> list[float]: ...
+    def put(self, key: str, value: str, ttl: int) -> None: ...
+    def fetch(self, key: str) -> str | None: ...
+    def keys(self, prefix: str) -> list[str]: ...
 
 
 class MemoryStore:
     def __init__(self):
         self._bench: dict[str, Bench] = {}
         self._spend: dict[tuple[str, str], float] = {}
+        self._hashes: dict[str, dict[str, float]] = {}
+        self._lists: dict[str, list[float]] = {}
+        self._values: dict[str, str] = {}
         self._lock = threading.Lock()
 
     def get_bench(self, provider):
@@ -76,6 +87,37 @@ class MemoryStore:
     def get_spend(self, provider, month):
         with self._lock:
             return self._spend.get((provider, month), 0.0)
+
+    def hincr(self, key, field, amount):
+        with self._lock:
+            h = self._hashes.setdefault(key, {})
+            h[field] = h.get(field, 0.0) + amount
+
+    def hgetall(self, key):
+        with self._lock:
+            return dict(self._hashes.get(key, {}))
+
+    def push_capped(self, key, value, cap):
+        with self._lock:
+            items = self._lists.setdefault(key, [])
+            items.insert(0, value)
+            del items[cap:]
+
+    def get_list(self, key):
+        with self._lock:
+            return list(self._lists.get(key, []))
+
+    def put(self, key, value, ttl):
+        with self._lock:
+            self._values[key] = value
+
+    def fetch(self, key):
+        with self._lock:
+            return self._values.get(key)
+
+    def keys(self, prefix):
+        with self._lock:
+            return sorted(k for k in self._hashes if k.startswith(prefix))
 
 
 class RedisStore:
@@ -131,6 +173,54 @@ class RedisStore:
             raw = self._r.get(f"{self._p}spend:{provider}:{month}")
             return float(raw) if raw else 0.0
         return self._safe(op, lambda: self._local.get_spend(provider, month))
+
+    # Evidence keys live for 180 days of inactivity.
+    _EVIDENCE_TTL = 180 * 86400
+
+    def hincr(self, key, field, amount):
+        self._local.hincr(key, field, amount)
+
+        def op():
+            self._r.hincrbyfloat(self._p + key, field, amount)
+            self._r.sadd(self._p + "index", key)
+            self._r.expire(self._p + key, self._EVIDENCE_TTL)
+        self._safe(op, lambda: None)
+
+    def hgetall(self, key):
+        def op():
+            raw = self._r.hgetall(self._p + key)
+            return {(k.decode() if isinstance(k, bytes) else k): float(v) for k, v in raw.items()}
+        return self._safe(op, lambda: self._local.hgetall(key))
+
+    def push_capped(self, key, value, cap):
+        self._local.push_capped(key, value, cap)
+
+        def op():
+            self._r.lpush(self._p + key, value)
+            self._r.ltrim(self._p + key, 0, cap - 1)
+            self._r.expire(self._p + key, self._EVIDENCE_TTL)
+        self._safe(op, lambda: None)
+
+    def get_list(self, key):
+        return self._safe(lambda: [float(v) for v in self._r.lrange(self._p + key, 0, -1)],
+                          lambda: self._local.get_list(key))
+
+    def put(self, key, value, ttl):
+        self._local.put(key, value, ttl)
+        self._safe(lambda: self._r.set(self._p + key, value, ex=ttl), lambda: None)
+
+    def fetch(self, key):
+        def op():
+            raw = self._r.get(self._p + key)
+            return raw.decode() if isinstance(raw, bytes) else raw
+        return self._safe(op, lambda: self._local.fetch(key))
+
+    def keys(self, prefix):
+        def op():
+            members = self._r.smembers(self._p + "index")
+            names = [m.decode() if isinstance(m, bytes) else m for m in members]
+            return sorted(n for n in names if n.startswith(prefix))
+        return self._safe(op, lambda: self._local.keys(prefix))
 
 
 class ProviderHealth:
