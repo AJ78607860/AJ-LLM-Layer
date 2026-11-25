@@ -15,9 +15,9 @@ Apps can leave `task_family` and `tier` as `"auto"`, which is the default. The L
 
 - **Task family** comes from code, maths, translation, writing, extraction, JSON, research, planning, travel, finance and document cues. Ambiguous questions become `conversation`.
 - **Tier:**
-  - `smart` for high-risk questions (health, legal, finance), proofs, deep or multi-step requests, large code or very long inputs;
-  - `fast` for short, simple chat, translation, extraction and writing;
-  - `standard` otherwise.
+  - `smart` for high-stakes questions (health and emergencies, money and debt, legal and housing rights), proofs, deep or multi-step requests, large code or very long inputs. The high-stakes word list is deliberately broad: a false alarm costs pennies, a miss can cost far more;
+  - `fast` only for small talk ("hi", "thanks") and short translation, extraction and writing;
+  - `standard` otherwise, including any general question that matches no category.
 - **Accuracy:** on 35 hand-labelled questions (`tests/fixtures/understand_cases.v1.json`) it got 34/35 families and 35/35 tiers right.
 - **What the reply shows:** the family and tier used, and `understanding` (whether each came from the app or the Layer, the confidence, and the names of the rules that fired; never any text).
 - **App labels win.** AJ, for example, can keep sending what its own analyser decided.

@@ -100,9 +100,30 @@ _DEPTH = _w(r"step by step", r"in depth", r"in detail", r"thorough(?:ly)?", r"co
             r"prove", r"derive", r"proof", r"architecture", r"design (?:a|the) system", r"trade-?offs?",
             r"edge cases?", r"optimi[sz]e", r"complex", r"multi-?step", r"root cause", r"concurren\w+",
             r"race condition", r"security (?:review|vulnerabilit\w+)", r"critically", r"nuanced")
-_HIGH_RISK = _w(r"symptoms?", r"diagnos\w*", r"dosage", r"medication", r"side effects?", r"treatment",
-                r"legal(?:ly)?", r"lawsuit", r"contract law", r"liabilit\w+", r"regulat\w+", r"compliance",
-                r"tax (?:advice|liability|return)", r"invest(?:ment)? advice", r"mortgage", r"pension")
+# High-stakes topics: a wrong or shallow answer can hurt someone's health, money or legal position.
+# Matching any of these forces the smart tier. Kept broad on purpose: a false alarm costs a few
+# pence, a miss can cost far more (review of PR #23, 25 Nov).
+_HIGH_RISK = re.compile(r"\b(?:" + "|".join([
+    # health and emergencies
+    r"symptoms?", r"diagnos\w*", r"dosage", r"dose", r"overdos\w*", r"medications?", r"medicines?",
+    r"pills?", r"tablets?", r"prescri\w+", r"side effects?", r"treatment", r"chest pain", r"pain",
+    r"numb\w*", r"bleed\w*", r"blood", r"breath(?:e|ing|less)?", r"faint\w*", r"dizz\w+", r"seizure",
+    r"unconscious", r"stroke", r"heart attack", r"fever", r"temperature of", r"rash", r"allerg\w+",
+    r"swell\w*", r"vomit\w*", r"injur\w+", r"burns?", r"poison\w*", r"pregnan\w+", r"baby", r"infant",
+    r"newborn", r"toddler", r"suicid\w*", r"self[- ]harm", r"kill myself", r"hurt myself", r"emergency",
+    r"a&e", r"999", r"911", r"ambulance", r"doctor", r"gp", r"hospital", r"antidepressants?",
+    r"insulin", r"antibiotics?", r"paracetamol", r"ibuprofen", r"alcohol",
+    # money
+    r"mortgage", r"remortgage", r"loans?", r"borrow\w*", r"debts?", r"credit (?:card|score|rating)",
+    r"overdraft", r"bankrupt\w*", r"insolven\w+", r"pension", r"invest\w*", r"savings", r"isa",
+    r"tax(?:es)?", r"hmrc", r"irs", r"benefits", r"universal credit", r"interest rate",
+    # legal and rights
+    r"legal(?:ly)?", r"lawyer", r"solicitor", r"lawsuit", r"su(?:e|ed|ing)", r"court", r"tribunal",
+    r"liabilit\w+", r"contract law", r"regulat\w+", r"compliance", r"evict\w*", r"tenan\w+",
+    r"landlord", r"lease", r"my rights", r"employment rights", r"fired", r"dismiss\w*", r"redundan\w+",
+    r"discriminat\w+", r"visa", r"immigration", r"deport\w*", r"asylum", r"police", r"arrest\w*",
+    r"divorce", r"custody", r"will and testament", r"power of attorney",
+]) + r")\b", re.I)
 _PRECISION = _w(r"exact(?:ly)?", r"precise(?:ly)?", r"how much", r"how many", r"percentage", r"figure",
                 r"deadline", r"dosage", r"accurate(?:ly)?")
 _SIMPLE = re.compile(r"^\W*(?:hi|hello|hey|thanks?|thank you|ok(?:ay)?|yes|no|sure|cheers|good (?:morning|"
@@ -172,7 +193,8 @@ def understand(messages, system: str | None = None, *, json_mode: bool = False) 
         tier = "smart"
         signals.append("tier:smart")
     elif (len(text) < 400 and depth == 0 and requirements < 3 and not _PRECISION.search(text)
-          and family in {"conversation", "translation", "extraction", "structured_data", "writing"}):
+          and (family in {"translation", "extraction", "structured_data", "writing"}
+               or (family == "conversation" and _SIMPLE.match(text) and len(text) < 60))):
         tier = "fast"
         signals.append("tier:fast")
     else:

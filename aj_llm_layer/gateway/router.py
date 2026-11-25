@@ -133,6 +133,7 @@ class Gateway:
         family = request.task_family
         last: ProviderError | None = None
         held: CompletionResult | None = None   # answer that failed an objective check
+        spent: float | None = None             # every billed attempt in this call, not just the last
         escalate_above: str | None = None      # tier of that answer; only stronger tiers next
         tier_of = {m.id: m.tier for m in self.catalog.models}
         rank = {"fast": 0, "standard": 1, "smart": 2}
@@ -168,6 +169,8 @@ class Gateway:
                 elapsed = int((self._clock() - t0) * 1000)
                 attempts.append(Attempt(provider=name, model=model, outcome="ok", latency_ms=elapsed))
                 cost = self._cost(model, raw.usage)
+                if cost is not None:
+                    spent = (spent or 0.0) + cost
                 self.health.record_success(name, cost)
                 self.ledger.record_attempt(family, model, ok=True, timeout=False,
                                            latency_ms=elapsed, cost_usd=cost)
@@ -180,7 +183,7 @@ class Gateway:
                                for a in attempts)
                 result = CompletionResult(
                     text=raw.text, provider=name, model=model, finish_reason=raw.finish_reason,
-                    usage=raw.usage, cost_usd=cost,
+                    usage=raw.usage, cost_usd=None if spent is None else round(spent, 8),
                     latency_ms=int((self._clock() - started) * 1000),
                     fallback_used=fallback, attempts=tuple(attempts), call_id=call_id,
                     selection=cand.selection if held is None else "escalated",
@@ -197,7 +200,8 @@ class Gateway:
             if last is not None and last.kind not in FALLBACK_KINDS and escalate_above is None:
                 break  # bad request / refusal: another model won't help
         if held is not None:
-            held = held.model_copy(update={"attempts": tuple(attempts)})
+            held = held.model_copy(update={"attempts": tuple(attempts),
+                                           "cost_usd": None if spent is None else round(spent, 8)})
             self._log(app, request, held.attempts, "ok", held)
             return held
         if last is not None:

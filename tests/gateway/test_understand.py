@@ -116,3 +116,57 @@ def test_if_nothing_passes_the_check_the_best_effort_answer_is_returned():
                                         data_class="non_personal", tier="fast"))
     assert out.model == "claude-haiku-5-5" and out.text == ""
     assert len(fakes["anthropic"].calls) == 3
+
+
+# Review of PR #23 (Instinct, 25 Nov): unlabelled high-stakes questions reached the fast model.
+HIGH_STAKES = [
+    "I have chest pain and my left arm feels numb, what should I do?",
+    "Should I take out a house loan or keep renting?",
+    "My baby has a high fever and won't stop crying",
+    "Can I break my lease early without being sued?",
+    "How much can I borrow on a personal loan?",
+    "I took too many sleeping pills",
+    "My landlord is evicting me, what are my rights?",
+    "Is it safe to mix alcohol with antidepressants?",
+    "Should I pay off my credit card debt or invest?",
+    "I think I'm having an allergic reaction, my throat is swelling",
+    "Should I remortgage my house?",
+    "Can my employer fire me for being pregnant?",
+]
+
+
+@pytest.mark.parametrize("question", HIGH_STAKES)
+def test_high_stakes_questions_never_get_the_fast_model(question):
+    r = u(question)
+    assert r.risk == "high" and r.tier == "smart"
+
+
+@pytest.mark.parametrize("question", ["What's the capital of Australia?", "Tell me a joke",
+                                      "What should I do this weekend?"])
+def test_unclassified_questions_default_to_standard_not_fast(question):
+    assert u(question).tier == "standard"
+
+
+def test_reported_cost_includes_every_billed_attempt():
+    clock = Clock(); clock.now = 1_790_000_000
+    fakes = {"anthropic": EmptyThenOk("anthropic", {"claude-haiku-5-5"}),
+             "openai": EmptyThenOk("openai", {"gpt-6.1-terra"})}
+    gw = Gateway(load_config(ENV), providers=fakes, retry_delay=0, clock=clock, wall_clock=clock,
+                 rng=Rng(1.0), settings=SelectorSettings(explore_rate=0))
+    out = gw.complete(CompletionRequest(messages=(Message(role="user", content="hi"),),
+                                        data_class="non_personal", tier="fast"))
+    cat = gw.catalog
+    expected = cat.get("claude-haiku-5-5").cost(10, 5) + cat.get("claude-sonnet-5-5").cost(10, 5)
+    assert out.cost_usd == pytest.approx(expected)
+    assert gw.health.status("anthropic")["spend_this_month_usd"] == pytest.approx(expected, abs=1e-4)
+
+
+def test_best_effort_answer_reports_total_cost():
+    clock = Clock(); clock.now = 1_790_000_000
+    every = {"claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"}
+    gw = Gateway(load_config({"ANTHROPIC_API_KEY": "k"}),
+                 providers={"anthropic": EmptyThenOk("anthropic", every)}, retry_delay=0, clock=clock,
+                 wall_clock=clock, rng=Rng(1.0), settings=SelectorSettings(explore_rate=0))
+    out = gw.complete(CompletionRequest(messages=(Message(role="user", content="hi"),),
+                                        data_class="non_personal", tier="fast"))
+    assert out.cost_usd == pytest.approx(sum(gw.catalog.get(m).cost(10, 5) for m in every))

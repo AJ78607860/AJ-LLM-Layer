@@ -12,7 +12,7 @@
  {
   "question": "How are you today?",
   "task_family": "conversation",
-  "tier": "fast"
+  "tier": "standard"
  },
  {
   "question": "Translate 'where is the station' into French",
@@ -27,7 +27,7 @@
  {
   "question": "Write a short email to my landlord asking to fix the boiler",
   "task_family": "writing",
-  "tier": "fast"
+  "tier": "smart"
  },
  {
   "question": "Summarise this: The meeting covered budgets and hiring plans for Q3.",
@@ -157,17 +157,17 @@
  {
   "question": "Tell me a joke",
   "task_family": "conversation",
-  "tier": "fast"
+  "tier": "standard"
  },
  {
   "question": "What's the capital of Australia?",
   "task_family": "conversation",
-  "tier": "fast"
+  "tier": "standard"
  },
  {
   "question": "Who wrote Pride and Prejudice?",
   "task_family": "conversation",
-  "tier": "fast"
+  "tier": "standard"
  },
  {
   "question": "Give me a detailed, step by step explanation of how TCP handshakes work, in depth",
