@@ -1,5 +1,6 @@
 # LLM Layer execution gateway (v0.2)
 
+
 One place every AJ app sends its model calls: AJ Assistant, Calibre and anything built later.
 Apps never hold provider keys or vendor SDKs; they call the Layer, and the Layer picks the
 provider, falls back when one fails, and logs metadata only.
@@ -11,9 +12,9 @@ provider, falls back when one fails, and logs metadata only.
   - Out of credits, rate limit, bad key, timeout, outage → next provider.
   - Timeout / 5xx → one quick retry on the same provider first.
   - Bad request or content refusal → returned immediately (another provider won't help).
-- **Circuit breaker:** a provider that runs out of credits or fails auth is skipped for 10
-  minutes (rate limits 20 s), so later calls go straight to the backup without paying the
-  failed round-trip each time.
+- **Credit awareness (see below):** a provider that runs out of credits is benched and
+  traffic goes straight to the backup; optional monthly spend limits stop using a provider
+  *before* its credit runs out.
 - **Privacy gate (ADR-025):** every request carries `data_class`, defaulting to `personal`.
   Personal data only goes to providers in `AJ_LLM_PERSONAL_DATA_PROVIDERS` (default
   `openai`). **Anthropic receives personal data only after the owner adds it there.**
@@ -52,6 +53,26 @@ gateway = Gateway()
 gateway.complete(CompletionRequest(messages=(Message(role="user", content="hi"),)), app="aj_assistant")
 ```
 
+## Avoiding providers with no credit
+
+OpenAI and Anthropic don't offer an API to read a prepaid balance, so the Layer uses two
+complementary guards:
+
+1. **Reactive bench (always on).** The first "out of credits" response benches that
+   provider: 10 min, then 30 min, 2 h, 6 h on repeat failures. While benched, calls skip it
+   with no wasted round trip. After each bench expires, one real call checks whether credit
+   is back; a success clears the bench. A bad key benches the same way. Rate limits bench
+   for 20 s only. Outages and timeouts don't bench (retry, then fall back).
+2. **Proactive spend limit (optional).** Set `AJ_LLM_SPEND_LIMITS` to a little under your
+   prepaid balance per provider, plus `AJ_LLM_PRICES`. The Layer counts spend from token
+   usage and skips a provider once it reaches its limit for the month, before it runs dry.
+3. **Shared state.** With `AJ_LLM_STATE_REDIS_URL`, every worker and replica sees the same
+   benches and spend. Without it, each process tracks its own. A Redis outage falls back
+   to memory and never blocks a reply.
+4. **Topped up?** `POST /v1/admin/providers/<name>/reset` with the admin key
+   (`AJ_LLM_ADMIN_KEY`) puts the provider back in rotation immediately.
+   `GET /v1/status` shows each provider's availability, bench reason, time left and spend.
+
 ## Configuration (environment variables)
 
 | Variable | Purpose | Default |
@@ -64,6 +85,9 @@ gateway.complete(CompletionRequest(messages=(Message(role="user", content="hi"),
 | `AJ_LLM_ANTHROPIC_MODEL_FAST/STANDARD/SMART` | Anthropic model per tier | `claude-haiku-5-5` / `claude-sonnet-5-5` / `claude-opus-5-5` |
 | `AJ_LLM_PERSONAL_DATA_PROVIDERS` | Providers approved for personal data | `openai` |
 | `AJ_LLM_PRICES` | `{"model":[usd_in_per_M, usd_out_per_M]}` for cost reporting | unknown cost |
+| `AJ_LLM_SPEND_LIMITS` | `{"openai":20,"anthropic":50}` USD/month; skip provider once reached | no limit |
+| `AJ_LLM_STATE_REDIS_URL` | Share credit/health state across replicas | in-memory |
+| `AJ_LLM_ADMIN_KEY` | Owner key for the reset endpoint (≥32 chars) | reset disabled |
 
 Generate an app key: `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
 
@@ -81,6 +105,5 @@ Generate an app key: `python -c "import secrets; print(secrets.token_urlsafe(48)
 
 ## Not in v0.2 (next)
 
-Streaming, tool/function calling, images/audio, shared (Redis) circuit-breaker state across
-replicas, per-app budgets via CostOS, and wiring the routing engine's recommendation into
+Streaming, tool/function calling, images/audio, per-app budgets via CostOS, and wiring the routing engine's recommendation into
 tier choice. AJ Assistant's tool-using turns need tool calling before they can move over.

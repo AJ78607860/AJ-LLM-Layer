@@ -20,8 +20,7 @@ FALLBACK_KINDS = frozenset({ErrorKind.QUOTA, ErrorKind.RATE_LIMIT, ErrorKind.AUT
                             ErrorKind.TIMEOUT, ErrorKind.UNAVAILABLE, ErrorKind.NOT_CONFIGURED})
 # Failures worth one quick retry on the same provider before moving on.
 RETRY_KINDS = frozenset({ErrorKind.TIMEOUT, ErrorKind.UNAVAILABLE})
-# Failures that take a provider out of rotation for a cool-down period.
-TRIP_KINDS = {ErrorKind.QUOTA: 600.0, ErrorKind.AUTH: 600.0, ErrorKind.RATE_LIMIT: 20.0}
+# Benching durations for quota/auth/rate-limit failures live in health.py.
 
 
 class ProviderError(Exception):

@@ -11,6 +11,9 @@ AJ_LLM_<PROVIDER>_MODEL_<TIER>          model per tier (fast|standard|smart)
 AJ_LLM_PERSONAL_DATA_PROVIDERS          providers approved for personal data, default "openai"
                                         (ADR-025). Add "anthropic" only after owner approval + DPA.
 AJ_LLM_PRICES                           optional JSON {"model-id": [usd_in_per_million, usd_out_per_million]}
+AJ_LLM_SPEND_LIMITS                     optional JSON {"openai": 20, "anthropic": 50} USD per month;
+                                        provider is skipped once reached (needs AJ_LLM_PRICES)
+AJ_LLM_STATE_REDIS_URL                  optional; shares credit/health state across replicas
 """
 from __future__ import annotations
 
@@ -43,6 +46,7 @@ class ProviderConfig:
 class GatewayConfig:
     providers: tuple[ProviderConfig, ...]
     prices: dict[str, tuple[float, float]]
+    spend_limits: dict[str, float] = field(default_factory=dict)
 
     def status(self) -> dict:
         """Content- and secret-free readiness summary."""
@@ -76,7 +80,18 @@ def load_config(env: dict[str, str] | None = None) -> GatewayConfig:
             name=name, api_key=key, models=models,
             personal_data_approved=name in personal,
             base_url=(env.get(f"AJ_LLM_{upper}_BASE_URL") or "").strip() or None))
-    return GatewayConfig(providers=tuple(providers), prices=_prices(env.get("AJ_LLM_PRICES")))
+    return GatewayConfig(providers=tuple(providers), prices=_prices(env.get("AJ_LLM_PRICES")),
+                         spend_limits=_limits(env.get("AJ_LLM_SPEND_LIMITS")))
+
+
+def _limits(raw: str | None) -> dict[str, float]:
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+        return {str(k).lower(): float(v) for k, v in data.items() if float(v) >= 0}
+    except (ValueError, TypeError, AttributeError):
+        return {}
 
 
 def _prices(raw: str | None) -> dict[str, tuple[float, float]]:

@@ -38,7 +38,8 @@ class Clock:
 def make(env_extra=None, openai=(), anthropic=(), clock=None):
     env = dict(BASE_ENV, **(env_extra or {}))
     fakes = {"openai": Fake("openai", openai), "anthropic": Fake("anthropic", anthropic)}
-    gw = Gateway(load_config(env), providers=fakes, retry_delay=0, clock=clock or Clock())
+    clock = clock or Clock()
+    gw = Gateway(load_config(env), providers=fakes, retry_delay=0, clock=clock, wall_clock=clock)
     return gw, fakes
 
 
@@ -165,7 +166,7 @@ def test_logs_are_content_free(caplog):
 def test_status_hides_keys():
     gw, _ = make()
     status = gw.status()
-    assert status["openai"]["key_configured"] is True
+    assert status["openai"]["key_configured"] is True and status["openai"]["available"] is True
     assert "sk-o" not in repr(status) and "sk-o" not in repr(gw.config)
 
 

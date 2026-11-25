@@ -107,6 +107,25 @@ async def complete(request: Request, authorization: str | None = Header(default=
     return result.model_dump()
 
 
+@router.post("/v1/admin/providers/{provider}/reset")
+def reset_provider(provider: str, authorization: str | None = Header(default=None)):
+    """Owner action after topping up credits or replacing a key: un-bench the provider now."""
+    if not _enabled():
+        raise HTTPException(status_code=404, detail="not found")
+    admin = os.getenv("AJ_LLM_ADMIN_KEY") or ""
+    if len(admin) < MIN_KEY_CHARS:
+        raise HTTPException(status_code=503, detail="admin key not configured")
+    supplied = (authorization or "")[7:] if (authorization or "").startswith("Bearer ") else ""
+    if not supplied.isascii() or not secrets.compare_digest(supplied.encode(), admin.encode()):
+        raise HTTPException(status_code=401, detail="unauthorized")
+    gateway = get_gateway()
+    if provider not in {p.name for p in gateway.config.providers}:
+        raise HTTPException(status_code=404, detail="unknown provider")
+    gateway.health.reset(provider)
+    log.warning("provider_reset provider=%s", provider)
+    return {"provider": provider, **gateway.health.status(provider)}
+
+
 @router.get("/v1/status")
 def status(authorization: str | None = Header(default=None)):
     _authenticate(authorization)

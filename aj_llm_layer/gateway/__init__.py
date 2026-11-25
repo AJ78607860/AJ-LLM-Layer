@@ -11,9 +11,10 @@ Over HTTP from any app: see aj_llm_layer.client.LLMClient.
 """
 from .config import GatewayConfig, ProviderConfig, load_config
 from .errors import ErrorKind, GatewayError, ProviderError
-from .router import CircuitBreaker, Gateway
+from .health import MemoryStore, ProviderHealth, RedisStore
+from .router import Gateway
 from .types import Attempt, CompletionRequest, CompletionResult, Message, Usage
 
-__all__ = ["Attempt", "CircuitBreaker", "CompletionRequest", "CompletionResult", "ErrorKind",
+__all__ = ["Attempt", "MemoryStore", "ProviderHealth", "RedisStore", "CompletionRequest", "CompletionResult", "ErrorKind",
            "Gateway", "GatewayConfig", "GatewayError", "Message", "ProviderConfig",
            "ProviderError", "Usage", "load_config"]
