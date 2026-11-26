@@ -35,6 +35,7 @@ from .health import MemoryStore, ProviderHealth, build_store
 from .providers import AnthropicProvider, OpenAIProvider, Provider
 from .selector import Candidate, Selector, SelectorSettings
 from .types import Attempt, CompletionRequest, CompletionResult
+from .understand import resolve
 
 log = logging.getLogger("aj.llm_layer.gateway")
 
@@ -121,13 +122,25 @@ class Gateway:
         return usable, skipped, {}
 
     # -- execution -----------------------------------------------------------
+    def resolve(self, request: CompletionRequest) -> tuple[CompletionRequest, dict]:
+        """Fill in task_family / tier the app left as "auto" by reading the question."""
+        return resolve(request)
+
     def complete(self, request: CompletionRequest, *, app: str = "unknown") -> CompletionResult:
         started = self._clock()
+        request, understanding = self.resolve(request)
         candidates, attempts, _ = self._candidates(request)
         family = request.task_family
         last: ProviderError | None = None
+        held: CompletionResult | None = None   # answer that failed an objective check
+        spent: float | None = None             # every billed attempt in this call, not just the last
+        escalate_above: str | None = None      # tier of that answer; only stronger tiers next
+        tier_of = {m.id: m.tier for m in self.catalog.models}
+        rank = {"fast": 0, "standard": 1, "smart": 2}
         for cand in candidates:
             name, model = cand.provider, cand.model
+            if escalate_above is not None and rank.get(tier_of.get(model, ""), -1) <= rank[escalate_above]:
+                continue
             blocked = self.health.blocked(name)
             if blocked:
                 # The provider ran out of credit / failed auth on an earlier model in this call.
@@ -156,25 +169,41 @@ class Gateway:
                 elapsed = int((self._clock() - t0) * 1000)
                 attempts.append(Attempt(provider=name, model=model, outcome="ok", latency_ms=elapsed))
                 cost = self._cost(model, raw.usage)
+                if cost is not None:
+                    spent = (spent or 0.0) + cost
                 self.health.record_success(name, cost)
                 self.ledger.record_attempt(family, model, ok=True, timeout=False,
                                            latency_ms=elapsed, cost_usd=cost)
                 call_id = self.ledger.new_call(family=family, model=model, provider=name, app=app)
-                if request.json_mode and not _is_json(raw.text):
+                failed_check = not raw.text.strip() or (request.json_mode and not _is_json(raw.text))
+                if failed_check:
                     self.ledger.grade_call(call_id, False, app=app)  # objective check failed
                 fallback = any(a.outcome != "ok" and (not a.outcome.startswith("skipped:")
                                                       or a.outcome.startswith(_FALLBACK_SKIPS))
                                for a in attempts)
                 result = CompletionResult(
                     text=raw.text, provider=name, model=model, finish_reason=raw.finish_reason,
-                    usage=raw.usage, cost_usd=cost,
+                    usage=raw.usage, cost_usd=None if spent is None else round(spent, 8),
                     latency_ms=int((self._clock() - started) * 1000),
                     fallback_used=fallback, attempts=tuple(attempts), call_id=call_id,
-                    selection=cand.selection)
+                    selection=cand.selection if held is None else "escalated",
+                    task_family=family, tier=request.tier, understanding=understanding)
+                if failed_check and model in tier_of:
+                    # Empty or not the JSON asked for: try a stronger model, keep this as a last resort.
+                    attempts[-1] = Attempt(provider=name, model=model, outcome="failed_check",
+                                           latency_ms=elapsed)
+                    held = held or result.model_copy(update={"attempts": tuple(attempts)})
+                    escalate_above = tier_of[model]
+                    break
                 self._log(app, request, result.attempts, "ok", result)
                 return result
-            if last is not None and last.kind not in FALLBACK_KINDS:
+            if last is not None and last.kind not in FALLBACK_KINDS and escalate_above is None:
                 break  # bad request / refusal: another model won't help
+        if held is not None:
+            held = held.model_copy(update={"attempts": tuple(attempts),
+                                           "cost_usd": None if spent is None else round(spent, 8)})
+            self._log(app, request, held.attempts, "ok", held)
+            return held
         if last is not None:
             kind, message = last.kind, f"all providers failed (last: {last})"
         else:

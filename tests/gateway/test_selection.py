@@ -57,6 +57,7 @@ def build(env_extra=None, openai=None, anthropic=None, explore=0.0, text="answer
 def req(**kw):
     kw.setdefault("messages", (Message(role="user", content="hello"),))
     kw.setdefault("data_class", "non_personal")
+    kw.setdefault("task_family", "conversation")
     return CompletionRequest(**kw)
 
 

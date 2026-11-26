@@ -45,6 +45,7 @@ def make(env_extra=None, openai=(), anthropic=(), clock=None):
 
 def req(**kw):
     kw.setdefault("messages", (Message(role="user", content="hello"),))
+    kw.setdefault("tier", "standard")
     return CompletionRequest(**kw)
 
 
