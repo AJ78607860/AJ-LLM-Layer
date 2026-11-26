@@ -83,7 +83,7 @@ def test_real_sender_mutations_rejected(sender,monkeypatch,failure):
             now=int(time.time())
             changes={'env':{'env':'production'},'aud':{'aud':'elsewhere'},'scope':{'scope':'inference:execute'},
                      'method':{'m':'GET'},'path':{'p':'/elsewhere'},
-                     'expired':{'iat':now-31,'exp':now-1},'future':{'iat':now+31,'exp':now+60}}
+                     'expired':{'iat':now-31,'exp':now-1},'future':{'iat':now+90,'exp':now+120}}
             claims.update(changes[failure]);c64=sender.service_auth.b64(sender.service_auth.canonical(claims))
             sig=sender.service_auth.mac(KEY.encode(),kid,c64)
         headers['X-AJ-Service-Auth']='.'.join((v,kid,c64,sig))

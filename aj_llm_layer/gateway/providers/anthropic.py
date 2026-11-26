@@ -35,8 +35,14 @@ class AnthropicProvider:
     def __init__(self, api_key: str, *, base_url: str = DEFAULT_BASE_URL,
                  client: httpx.Client | None = None):
         self._key = api_key
-        self._url = base_url.rstrip("/") + "/messages"
+        self._base = base_url.rstrip("/")
+        self._url = self._base + "/messages"
         self._client = client or httpx.Client()
+
+    def post(self, path: str, body: dict, timeout: float) -> dict:
+        """Raw authenticated POST to this provider (used by the Responses translator)."""
+        return post_json(self._client, NAME, self._base + path, headers={"x-api-key": self._key, "anthropic-version": API_VERSION},
+                         body=body, timeout=timeout, classify=classify)
 
     def complete(self, request: CompletionRequest, model: str) -> RawCompletion:
         system = request.system or ""

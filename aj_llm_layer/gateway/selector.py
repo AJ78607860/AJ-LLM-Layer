@@ -140,10 +140,14 @@ class Selector:
         def price(m: CatalogModel) -> float:
             return m.cost(input_tokens, request.max_tokens)
 
+        # Equal prices are broken at random, never by name: sorting by name quietly favoured one provider
+        # (first live call, 26 Nov: claude-sonnet-5-5 always beat the equally priced gpt-6.2-sol).
+        tie = {m.id: self._rng.random() for m in pool}
+
         same_tier = [m for m in pool if m.tier == request.tier]
         proven, demoted, decision_info = self._rank_with_engine(same_tier, request, input_tokens)
         untested = sorted((m for m in same_tier if m.id not in proven and m.id not in demoted),
-                          key=lambda m: (price(m), m.id))
+                          key=lambda m: (price(m), tie[m.id]))
         by_id = {m.id: m for m in pool}
         ordered: list[Candidate] = [Candidate(by_id[i].provider, i, "proven") for i in proven]
         if untested and proven and self._rng.random() < self.settings.explore_rate:
@@ -153,7 +157,7 @@ class Selector:
         ordered += [Candidate(m.provider, m.id, "untested") for m in untested]
         ordered += [Candidate(by_id[i].provider, i, "proven_poor") for i in demoted]
         higher = sorted((m for m in pool if m.tier != request.tier),
-                        key=lambda m: (TIER_RANK[m.tier], price(m), m.id))
+                        key=lambda m: (TIER_RANK[m.tier], price(m), tie[m.id]))
         ordered += [Candidate(m.provider, m.id, "stronger_tier") for m in higher]
         return ordered, skipped, decision_info
 
