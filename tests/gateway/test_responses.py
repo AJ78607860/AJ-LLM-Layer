@@ -262,3 +262,23 @@ def test_http_responses_endpoint(client):
     assert r2.status_code == 200 and r2.json()["output_text"] == "Sunny in Leeds"
     bad = c.post("/v1/responses", headers={"Authorization": f"Bearer {KEY}"}, content=b"{not json")
     assert bad.status_code == 400 and bad.json()["error"]["code"] == "invalid_json"
+
+
+def test_time_budget_keeps_fallback_inside_the_callers_wait(monkeypatch):
+    from aj_llm_layer.gateway.responses import service as svc_mod
+    gw, fakes = build(ALL)
+    seen = []
+
+    class Slow(FakeProvider):
+        def post(self, path, body, timeout):
+            seen.append(timeout)
+            raise ProviderError(ErrorKind.TIMEOUT, self.name, "slow")
+    gw._providers = {"openai": Slow("openai"), "anthropic": Slow("anthropic")}
+    clock = iter(range(0, 10_000, 40))         # every monotonic() call advances 40 s
+    monkeypatch.setattr(svc_mod.time, "monotonic", lambda: next(clock))
+    from aj_llm_layer.gateway.responses import ResponsesError
+    with pytest.raises(ResponsesError) as exc:
+        ResponsesService(gw).respond({"input": "hi"}, app="aj")
+    assert exc.value.status == 504
+    assert all(t <= svc_mod.ATTEMPT_TIMEOUT for t in seen) and len(seen) <= 3
+    assert any(a.outcome == "skipped:time_budget" for a in exc.value.attempts)

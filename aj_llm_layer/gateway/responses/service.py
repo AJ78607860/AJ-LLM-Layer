@@ -25,6 +25,11 @@ from .translate import (anthropic_output, anthropic_request, can_serve, items_to
 
 log = logging.getLogger("aj.llm_layer.gateway.responses")
 
+# AJ waits at most AJ_OPENAI_TIMEOUT_SECONDS (120 s) for a reply. Each provider attempt gets 45 s and the whole
+# request 100 s, so a fallback to the next provider still lands inside the caller's wait.
+ATTEMPT_TIMEOUT = 45.0
+REQUEST_BUDGET = 100.0
+
 _BUILD = {"openai": (openai_request, "/responses", openai_output),
           "anthropic": (anthropic_request, "/messages", anthropic_output)}
 
@@ -120,6 +125,11 @@ class ResponsesService:
         last: ProviderError | None = None
         for cand in candidates:
             name, model = cand.provider, cand.model
+            left = REQUEST_BUDGET - (time.monotonic() - started)
+            if left < 5:
+                attempts.append(Attempt(provider=name, model=model, outcome="skipped:time_budget"))
+                last = last or ProviderError(ErrorKind.TIMEOUT, name, "request time budget used up")
+                break
             reason = can_serve(name, tools, convo) or self.gw.health.blocked(name)
             if reason:
                 attempts.append(Attempt(provider=name, model=model, outcome=f"skipped:{reason}"))
@@ -129,7 +139,8 @@ class ResponsesService:
             for attempt_no in (1, 2):
                 t0 = time.monotonic()
                 try:
-                    raw = self.gw._providers[name].post(path, payload, timeout=120.0)
+                    timeout = min(ATTEMPT_TIMEOUT, max(5.0, REQUEST_BUDGET - (time.monotonic() - started)))
+                    raw = self.gw._providers[name].post(path, payload, timeout=timeout)
                     output, usage, status = parse(raw)
                 except ProviderError as exc:
                     ms = int((time.monotonic() - t0) * 1000)
@@ -140,7 +151,7 @@ class ResponsesService:
                         self.gw.ledger.record_attempt(request.task_family, model, ok=False,
                                                       timeout=exc.kind is ErrorKind.TIMEOUT, latency_ms=ms,
                                                       cost_usd=None)
-                    if exc.kind in RETRY_KINDS and attempt_no == 1:
+                    if exc.kind in RETRY_KINDS and attempt_no == 1 and time.monotonic() - started < REQUEST_BUDGET / 2:
                         if self._retry_delay:
                             time.sleep(self._retry_delay)
                         continue
