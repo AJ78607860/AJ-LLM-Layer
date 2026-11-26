@@ -113,6 +113,45 @@ class Feedback(BaseModel):
     correct: bool = Field(strict=True)
 
 
+_responses = None
+
+
+def get_responses():
+    global _responses
+    from .responses import ResponsesService
+    gw = get_gateway()
+    with _lock:
+        if _responses is None or _responses.gw is not gw:
+            _responses = ResponsesService(gw)
+        return _responses
+
+
+@router.post("/v1/responses")
+async def responses(request: Request, authorization: str | None = Header(default=None),
+                    x_aj_data_class: str | None = Header(default=None)):
+    """OpenAI-Responses-compatible: apps using the OpenAI SDK set base_url to the Layer and keep their code.
+    The caller states its data class in `X-AJ-Data-Class` (missing = personal)."""
+    from .responses import ResponsesError
+    app = _authenticate(authorization)
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > 8_000_000:
+            return JSONResponse(status_code=413, content={"error": {
+                "message": "request too large", "type": "invalid_request_error", "code": "request_too_large"}})
+    try:
+        import json as _json
+        payload = _json.loads(bytes(body) or b"{}")
+    except ValueError:
+        return JSONResponse(status_code=400, content={"error": {
+            "message": "body must be JSON", "type": "invalid_request_error", "code": "invalid_json"}})
+    try:
+        return await run_in_threadpool(get_responses().respond, payload, app=app,
+                                       data_class=(x_aj_data_class or "personal").strip().lower())
+    except ResponsesError as exc:
+        return JSONResponse(status_code=exc.status, content=exc.body())
+
+
 @router.post("/v1/feedback")
 def feedback(body: Feedback, authorization: str | None = Header(default=None)):
     """Grade an earlier answer (right / wrong). This is what teaches the Layer which model is best."""

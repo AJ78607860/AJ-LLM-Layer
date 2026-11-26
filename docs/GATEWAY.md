@@ -1,4 +1,4 @@
-# LLM Layer execution gateway (v0.4)
+# LLM Layer execution gateway (v0.5)
 
 One place every AJ app sends its model calls: AJ Assistant, Calibre and anything built later.
 Apps never hold provider keys or vendor SDKs. They call the Layer, and the Layer:
@@ -8,6 +8,40 @@ Apps never hold provider keys or vendor SDKs. They call the Layer, and the Layer
 3. **learns which model is best** for each kind of task from graded answers.
 
 Logs and stored evidence contain metadata only. Prompts, replies and keys are never kept.
+
+## Existing OpenAI-SDK apps: `POST /v1/responses`
+
+An app already written against the OpenAI Responses API (AJ Assistant) switches by changing two settings: `base_url` becomes the Layer (`https://<layer>/v1`) and the API key becomes the app's Layer key. The app also adds one header, `X-AJ-Data-Class: personal | sensitive | public` (a missing header means personal).
+
+**What it accepts:** the subset AJ uses.
+- `instructions` and `input` (a string, or messages with text and images).
+- Tool items: `function_call` and `function_call_output`.
+- `tools`: function tools, plus the hosted `web_search`.
+- `tool_choice`, `max_output_tokens`, `temperature`, `text.format` (JSON) and `previous_response_id`.
+
+**OpenAI** receives the request in its own Responses format. Hosted tools work as before. Nothing is stored at OpenAI (`store: false`).
+
+**Anthropic** receives a translation:
+- tools become tool_use and tool_result blocks;
+- `web_search` becomes Anthropic's server web search;
+- images become image blocks.
+
+If a request needs something Anthropic can't do, such as `file_search`, `computer_use` or a non-https image, Anthropic is skipped for that call rather than failing.
+
+**`previous_response_id`:** the Layer remembers recent replies itself, so a tool loop can send only the new tool outputs.
+- The memory is held in this process only, for 30 minutes, with up to 2,000 conversations.
+- Only the app that created a reply can continue it.
+- An unknown or expired id returns a 400 error mentioning `previous_response`. AJ then rebuilds the conversation from its own store.
+- A tool loop stays on the model that started it while that model is usable.
+
+**Errors** use OpenAI's shape:
+- every approved provider out of credit → `429` with code `insufficient_quota`;
+- an outage → `503`;
+- a bad request → `400`.
+
+**Not yet supported:** `stream: true`, `file_id` inputs, and hosted tools other than web search on Anthropic.
+
+**Contract evidence:** the real `openai==3.20.0` SDK, the version AJ pins, completed a tool call, a chained follow-up, an unknown chain and an all-providers-out-of-credit case against the running service. It passed on both the Anthropic and the OpenAI route.
 
 ## Reading the question (no model call)
 
