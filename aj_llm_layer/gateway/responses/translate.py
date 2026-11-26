@@ -171,21 +171,40 @@ def anthropic_request(model: str, instructions: str | None, convo: Conversation,
     return body
 
 
+def _url_citations(block: dict, start: int, end: int) -> list[dict]:
+    """Anthropic web-search citations on a text block -> Responses ``url_citation`` annotations (https only)."""
+    out = []
+    for c in block.get("citations") or []:
+        url = str((c or {}).get("url") or "") if isinstance(c, dict) else ""
+        if url.startswith("https://") or url.startswith("http://"):
+            out.append({"type": "url_citation", "url": url, "title": str(c.get("title") or "")[:300],
+                        "start_index": start, "end_index": end})
+    return out
+
+
 def anthropic_output(payload: dict) -> tuple[list[dict], dict, str]:
-    texts, calls = [], []
+    texts, calls, annotations, searches = [], [], [], []
+    offset = 0
     for block in payload.get("content") or []:
         if not isinstance(block, dict):
             continue
         if block.get("type") == "text" and block.get("text"):
+            annotations.extend(_url_citations(block, offset, offset + len(block["text"])))
+            offset += len(block["text"])
             texts.append(block["text"])
+        elif block.get("type") == "server_tool_use" and block.get("name") == "web_search":
+            # One Responses web_search_call per Anthropic search, so callers can count (and price) searches.
+            query = str((block.get("input") or {}).get("query") or "")[:500]
+            searches.append({"type": "web_search_call", "id": new_id("ws"), "status": "completed",
+                             "action": {"type": "search", "query": query}})
         elif block.get("type") == "tool_use":
             calls.append({"type": "function_call", "id": new_id("fc"), "call_id": block.get("id") or new_id("call"),
                           "name": block.get("name") or "", "arguments": json.dumps(block.get("input") or {}),
                           "status": "completed"})
-    items = []
+    items = list(searches)
     if texts:
         items.append({"type": "message", "id": new_id("msg"), "role": "assistant", "status": "completed",
-                      "content": [{"type": "output_text", "text": "".join(texts), "annotations": []}]})
+                      "content": [{"type": "output_text", "text": "".join(texts), "annotations": annotations}]})
     items.extend(calls)
     usage = payload.get("usage") or {}
     stop = payload.get("stop_reason")

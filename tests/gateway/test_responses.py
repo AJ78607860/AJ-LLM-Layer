@@ -282,3 +282,28 @@ def test_time_budget_keeps_fallback_inside_the_callers_wait(monkeypatch):
     assert exc.value.status == 504
     assert all(t <= svc_mod.ATTEMPT_TIMEOUT for t in seen) and len(seen) <= 3
     assert any(a.outcome == "skipped:time_budget" for a in exc.value.attempts)
+
+
+def test_anthropic_web_search_citations_become_url_citations():
+    payload = {"content": [
+        {"type": "server_tool_use", "id": "srvtoolu_1", "name": "web_search", "input": {"query": "bank rate"}},
+        {"type": "web_search_tool_result", "tool_use_id": "srvtoolu_1", "content": []},
+        {"type": "text", "text": "The rate is 4%.", "citations": [
+            {"type": "web_search_result_location", "url": "https://www.bankofengland.co.uk/x", "title": "BoE",
+             "cited_text": "4%"},
+            {"type": "web_search_result_location", "url": "javascript:alert(1)", "title": "bad"}]},
+        {"type": "text", "text": " Next decision soon."}],
+        "usage": {"input_tokens": 5, "output_tokens": 3}, "stop_reason": "end_turn"}
+    items, usage, status = anthropic_output(payload)
+    assert items[0] == {"type": "web_search_call", "id": items[0]["id"], "status": "completed",
+                        "action": {"type": "search", "query": "bank rate"}}
+    content = items[1]["content"][0]
+    assert content["text"] == "The rate is 4%. Next decision soon."
+    assert content["annotations"] == [{"type": "url_citation", "url": "https://www.bankofengland.co.uk/x",
+                                       "title": "BoE", "start_index": 0, "end_index": 15}]
+    assert status == "completed" and usage == {"input_tokens": 5, "output_tokens": 3}
+
+
+def test_anthropic_text_without_citations_keeps_empty_annotations():
+    items, _, _ = anthropic_output({"content": [{"type": "text", "text": "hi"}], "usage": {}})
+    assert items[0]["content"][0]["annotations"] == []
