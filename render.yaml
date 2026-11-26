@@ -9,3 +9,17 @@ services:
     startCommand: uvicorn aj_llm_layer.api:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /healthz
     autoDeployTrigger: "off"
+    # Gateway (docs/GATEWAY.md). Secrets are set in the Render dashboard, never here.
+    envVars:
+      - key: AJ_LLM_GATEWAY_ENABLED
+        value: "false"
+      - key: AJ_LLM_GATEWAY_KEYS
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: AJ_LLM_OPENAI_MODEL_STANDARD
+        sync: false
+      - key: AJ_LLM_PERSONAL_DATA_PROVIDERS
+        value: "openai"

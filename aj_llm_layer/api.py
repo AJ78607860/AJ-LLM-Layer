@@ -24,6 +24,11 @@ class BenchmarkCandidate(BaseModel):
 # data provenance and provider approval must precede any externally callable route.
 
 
+# Execution gateway: /v1/complete and /v1/status. Returns 404 unless
+# AJ_LLM_GATEWAY_ENABLED=true; per-app keys in AJ_LLM_GATEWAY_KEYS.
+from .gateway.http import router as gateway_router
+app.include_router(gateway_router)
+
 # Metadata-only internal shadow endpoint; no model execution.
 from .shadow import router as shadow_router
 app.include_router(shadow_router)
